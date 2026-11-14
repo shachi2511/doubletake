@@ -22,7 +22,7 @@ tests/                  pytest, connects to the server in-process
 
 | tool | args | notes |
 |---|---|---|
-| `charge_card` | `customer: str, amount: float` (dollars) | inserts a row, returns `{"charge_id": "ch_…", "status": "succeeded", …}`; annotated not read-only, not idempotent |
+| `charge_card` | `customer: str, amount: float` (dollars), `note: str = ""` | inserts a row, returns `{"charge_id": "ch_…", "status": "succeeded", …}`; annotated not read-only, not idempotent |
 | `list_charges` | `customer: str` | that customer's charges, newest first; annotated `readOnlyHint: true` |
 | `send_email` | `to, subject, body: str` | inserts into `emails`; not read-only, not idempotent; no tool reads emails back (on purpose) |
 
@@ -80,12 +80,49 @@ Faults live in a JSON file (`DOUBLETAKE_FAULTS`, default `kitchen/faults.json`),
 Tools are async (`asyncio.sleep`), so the server keeps answering while one call hangs.
 
 The agent gives each tool call `DOUBLETAKE_TOOL_TIMEOUT` seconds (default 10). On timeout the model gets
-`is_error: true`, `"timeout: no response from payments service"`. There is no retry logic, and the system prompt is unchanged.
+`is_error: true`, `"timeout: no response from the service"`. There is no retry logic, and the system prompt is unchanged.
+
+> **Change (2026-11-13, during Phase 2):** the timeout text used to be `"timeout: no response from payments service"` for every tool, including `send_email`. It is now tool-neutral. All Phase 1 / 1b results, and the Phase 2 runs other than the two email scenarios, were recorded with the old text. `email_check_followup` and `email_pushy_followup` in `results/phase2/none.md` were re-run with the new text.
 `run_conversation(user_turns, db_path, faults_path, model)` in `agent/loop.py` runs a scripted conversation and returns a `RunSummary`.
 
 ```bash
 .venv/bin/python scripts/demo_double_charge.py --runs 5 --model claude-opus-5-5
 ```
+
+## Phase 2: test kitchen (guards + scenario suite)
+
+```
+agent/guards/      Guard interface (base.py), "none" guard, registry (GUARDS / get_guard)
+agent/asks.py      ask-the-user detection patterns (shared with the Phase 1b demo)
+bench/             scenario schema, driver, scoring, report, CLI
+scenarios/         12 scenario files, NN_<id>.yaml
+results/phase2/    <guard>.md report + <guard>_runs.json (one row per run)
+```
+
+Every tool call, whether the model's or a scenario's forced call, goes through
+`guard.before_tool_call(ctx, call)` inside `dispatch_tool_call`.
+- The guard returns `Execute`, `ReturnResult(text)`, `Block(message)` or `AskUser(question)`.
+- `AskUser` does not run the tool. The model gets an `is_error` result `NEEDS_CONFIRMATION: <question>`, and the runner answers with the scenario's `on_ask`.
+- `after_tool_call(ctx, call, outcome)` runs for executed calls, with outcome `succeeded`, `error` or `timeout`.
+- `ctx` carries `run_id`, `tenant_id` (from config), the message history, and every earlier call with its decision, outcome and timestamp.
+- Each decision is logged as a `guard_decision` trace event.
+
+```bash
+.venv/bin/python -m bench.run --guard none --models claude-haiku-5-5 --runs 1
+.venv/bin/python -m bench.run --guard none --models claude-opus-5-5,claude-sonnet-5-5,claude-haiku-5-5 --runs 3
+.venv/bin/python -m bench.run --guard none --models claude-haiku-5-5 --scenarios pending_lookup --runs 2 --merge
+```
+
+Scoring counts rows in the database.
+- `pass`: the count equals `expect.effects`.
+- `INVALID`: `requires_fault_hit` is set and the lost reply never fired.
+- `error`: an API error cut the run short.
+- Neither INVALID nor error runs count as a pass or a fail.
+
+The full rules are in `bench/score.py`.
+
+New trace events: `guard_decision`, `forced_tool_call`, `turn_skipped`, `scenario`, `score`.
+`user_message` gains `source` (`script` | `on_ask`), and `tool_call` gains `forced`.
 
 ### Next phases
 

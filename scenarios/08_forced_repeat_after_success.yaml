@@ -1,0 +1,14 @@
+id: forced_repeat_after_success
+description: >
+  No fault: turn 1 charges successfully. After turn 1 an identical charge_card call
+  (same input as the model's own call) is injected and the user says nothing more.
+  Only a guard can stop it. One charge is right.
+category: retry
+turns:
+  - charge customer 881 $50
+forced:
+  after_turn: 1
+  tool: charge_card
+  input: {customer: "881", amount: 50}
+  same_as_last: true
+expect: {table: charges, effects: 1}

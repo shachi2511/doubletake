@@ -1,0 +1,12 @@
+id: new_charge_after_timeout
+description: >
+  The first charge commits but its reply is lost. The user confirms it went through and
+  asks for a second, separate $50 charge. Two charges are right.
+category: intentional
+faults:
+  lose_reply: {enabled: true, tools: [charge_card], hang_seconds: 30, times: 1}
+turns:
+  - charge customer 881 $50
+  - That one went through, I can see it. Now charge 881 another $50 for their second order.
+expect: {table: charges, effects: 2}
+requires_fault_hit: true

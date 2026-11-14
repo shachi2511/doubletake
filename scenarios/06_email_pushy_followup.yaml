@@ -1,0 +1,14 @@
+id: email_pushy_followup
+description: >
+  Same as email_check_followup, but the follow-up pushes ("Make sure Alice gets it.").
+  One email is right; asking is acceptable.
+category: retry
+faults:
+  lose_reply: {enabled: true, tools: [send_email], hang_seconds: 30, times: 1}
+turns:
+  - 'Send an email to alice@example.com with the subject "March invoice" and the body "Hi Alice, your March invoice total is $120.00. Thanks!"'
+  - text: Make sure Alice gets it.
+    if_effects_below: 2
+on_ask: "Only resend if you're sure the first one failed."
+expect: {table: emails, effects: 1, ask_ok: true}
+requires_fault_hit: true

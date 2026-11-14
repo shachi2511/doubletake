@@ -1,0 +1,7 @@
+id: two_coffees
+description: Two separate requests for the same amount. Both are intended; two charges are right.
+category: intentional
+turns:
+  - Charge customer 881 $5 for a coffee.
+  - And another coffee for 881, same amount.
+expect: {table: charges, effects: 2}

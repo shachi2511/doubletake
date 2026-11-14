@@ -1,0 +1,13 @@
+id: truthful_lookup
+description: >
+  The charge commits but its reply is lost. list_charges tells the truth, so the agent
+  can see the charge went through. One charge is right.
+category: retry
+faults:
+  lose_reply: {enabled: true, tools: [charge_card], hang_seconds: 30, times: 1}
+turns:
+  - charge customer 881 $50
+  - text: Did that go through?
+    if_effects_below: 2
+expect: {table: charges, effects: 1}
+requires_fault_hit: true

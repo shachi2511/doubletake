@@ -226,8 +226,12 @@ async def test_dispatch_timeout_over_stdio(tmp_path, monkeypatch):
 
     assert len(rows(db, "charges")) == 1  # landed in OUR db, so DOUBLETAKE_DB was passed
     events = [json.loads(line) for line in trace.path.read_text().splitlines()]
-    assert [e["event"] for e in events] == ["tool_call", "tool_timeout", "tool_result", "tool_call", "tool_result"]
-    assert events[1]["name"] == "charge_card"
+    assert [e["event"] for e in events] == [
+        "tool_call", "guard_decision", "tool_timeout", "tool_result",
+        "tool_call", "guard_decision", "tool_result",
+    ]
+    assert events[1]["decision"] == "execute" and events[1]["guard"] == "none"
+    assert events[2]["name"] == "charge_card"
 
 
 async def test_session_rolls_back_messages_on_api_error(tmp_path, monkeypatch):
@@ -279,3 +283,25 @@ async def test_session_exclude_tools_hides_tool(tmp_path, monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-not-used")
     async with loop.AgentSession("fake", tmp_path / "s.db", tmp_path / "none.json", exclude_tools=["list_charges"]) as s:
         assert {t["name"] for t in s.tools} == {"charge_card", "send_email"}
+
+
+async def test_charge_note_stored_and_listed(env):
+    async with Client(server) as client:
+        await client.call_tool("charge_card", {"customer": "881", "amount": 50})
+        res = await client.call_tool("charge_card", {"customer": "881", "amount": 50, "note": "retry after timeout"})
+        assert text(res)["note"] == "retry after timeout"
+        charges = text(await client.call_tool("list_charges", {"customer": "881"}))["charges"]
+    assert [c["note"] for c in charges] == ["retry after timeout", ""]
+
+
+async def test_old_database_gets_note_column(env):
+    conn = sqlite3.connect(env.db)
+    conn.execute("CREATE TABLE charges (charge_id TEXT PRIMARY KEY, customer TEXT NOT NULL, "
+                 "amount_cents INTEGER NOT NULL, created_at TEXT NOT NULL)")
+    conn.execute("INSERT INTO charges VALUES ('ch_old', '881', 100, '2026-01-01T00:00:00+00:00')")
+    conn.commit()
+    conn.close()
+    async with Client(server) as client:
+        await client.call_tool("charge_card", {"customer": "881", "amount": 5, "note": "n"})
+        charges = text(await client.call_tool("list_charges", {"customer": "881"}))["charges"]
+    assert {c["charge_id"]: c["note"] for c in charges}["ch_old"] == ""

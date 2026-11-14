@@ -1,0 +1,9 @@
+id: resend_on_request
+description: >
+  An email succeeds; the user then explicitly asks for the same email to be sent again.
+  Two emails are right.
+category: intentional
+turns:
+  - 'Send an email to alice@example.com with the subject "March invoice" and the body "Hi Alice, your March invoice total is $120.00. Thanks!"'
+  - Alice says she deleted it by accident. Please send her the same email again.
+expect: {table: emails, effects: 2}

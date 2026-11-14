@@ -10,6 +10,9 @@ Programmatic use (scripts, benchmarks):
 
     summary = await run_conversation(["charge customer 881 $50"], db_path, faults_path, model)
 
+Every tool call goes through a guard (agent/guards/) inside dispatch_tool_call;
+the default guard "none" always executes. The benchmark lives in bench/.
+
 Environment:
     DOUBLETAKE_DB            SQLite path passed to the server (default data/payments.db)
     DOUBLETAKE_FAULTS        fault config passed to the server (default kitchen/faults.json)
@@ -26,12 +29,27 @@ from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import anthropic
 from dotenv import load_dotenv
 from mcp import Client, StdioServerParameters
 from mcp.shared.exceptions import MCPError
 from mcp_types import REQUEST_TIMEOUT
+
+from agent.guards import (
+    NEEDS_CONFIRMATION,
+    AskUser,
+    Block,
+    Execute,
+    Guard,
+    GuardContext,
+    NoneGuard,
+    Outcome,
+    ReturnResult,
+    ToolCall,
+)
+from agent.guards.base import decision_detail
 
 ROOT = Path(__file__).resolve().parent.parent
 SERVER_SCRIPT = ROOT / "kitchen" / "server.py"
@@ -42,7 +60,8 @@ MAX_TOKENS = 16000
 MAX_MODEL_TURNS = 25  # safety cap per user message
 DEFAULT_MODEL = "claude-opus-5-5"
 DEFAULT_TOOL_TIMEOUT = 10.0
-TIMEOUT_TEXT = "timeout: no response from payments service"
+TIMEOUT_TEXT = "timeout: no response from the service"  # tool-neutral (was "...from payments service" before 2026-11-13)
+DEFAULT_TENANT = "tenant_a"
 
 
 def default_tool_timeout() -> float:
@@ -101,39 +120,78 @@ def server_params(db_path=None, faults_path=None) -> StdioServerParameters:
     return StdioServerParameters(command=sys.executable, args=[str(SERVER_SCRIPT)], cwd=str(ROOT), env=env or None)
 
 
-async def dispatch_tool_call(mcp: Client, block, trace: TraceLogger, timeout: float | None = None) -> dict:
-    """Run ONE tool_use block through MCP and return the matching tool_result block.
+async def dispatch_tool_call(
+    mcp: Client,
+    block,
+    trace: TraceLogger,
+    timeout: float | None = None,
+    *,
+    guard: Guard | None = None,
+    ctx: GuardContext | None = None,
+    forced: bool = False,
+) -> dict:
+    """Run ONE tool_use block and return the matching tool_result block.
 
-    This is the single choke point for side effects. Later phases add a guard
-    in front of it (e.g. idempotency / duplicate detection).
+    This is the single choke point for side effects. The guard is consulted
+    first, for every call (model-issued or forced); the tool reaches the MCP
+    server only if the guard says Execute. The processed call (with decision
+    and outcome) is appended to ctx.calls, so the caller can read ctx.calls[-1].
 
     If the server does not answer within `timeout` seconds, the model gets an
     is_error tool_result saying so. The request may still have taken effect on
-    the server; we deliberately do not retry or check here.
+    the server; no retry or check happens here (that is a guard's job).
     """
     timeout = default_tool_timeout() if timeout is None else timeout
-    trace.log("tool_call", tool_use_id=block.id, name=block.name, input=block.input)
+    guard = guard or NoneGuard()
+    if ctx is None:
+        ctx = GuardContext(run_id=trace.run_id, tenant_id="", messages=[])
+    call = ToolCall(
+        tool_use_id=block.id, name=block.name, input=dict(block.input),
+        ts=datetime.now(timezone.utc), forced=forced,
+    )
+    trace.log("tool_call", tool_use_id=block.id, name=block.name, input=block.input, forced=forced)
+
+    decision = await guard.before_tool_call(ctx, call)
+    call.decision = decision
+    trace.log(
+        "guard_decision", tool_use_id=block.id, name=block.name, guard=guard.name,
+        decision=decision.kind, detail=decision_detail(decision), forced=forced,
+    )
+
     start = time.perf_counter()
-    timed_out = False
-    try:
-        result = await mcp.call_tool(block.name, block.input, read_timeout_seconds=timeout)
-        text = "\n".join(c.text for c in result.content if getattr(c, "type", None) == "text")
-        is_error = bool(result.is_error)
-    except (MCPError, TimeoutError) as e:
-        if isinstance(e, TimeoutError) or e.code == REQUEST_TIMEOUT:
-            timed_out = True
-            text = TIMEOUT_TEXT
-        else:
+    if isinstance(decision, Execute):
+        timed_out = False
+        try:
+            result = await mcp.call_tool(block.name, block.input, read_timeout_seconds=timeout)
+            text = "\n".join(c.text for c in result.content if getattr(c, "type", None) == "text")
+            is_error = bool(result.is_error)
+        except (MCPError, TimeoutError) as e:
+            if isinstance(e, TimeoutError) or e.code == REQUEST_TIMEOUT:
+                timed_out = True
+                text = TIMEOUT_TEXT
+            else:
+                text = f"{type(e).__name__}: {e}"
+            is_error = True
+        except Exception as e:  # transport/protocol failure: report to the model, don't crash
             text = f"{type(e).__name__}: {e}"
-        is_error = True
-    except Exception as e:  # transport/protocol failure: report to the model, don't crash
-        text = f"{type(e).__name__}: {e}"
-        is_error = True
+            is_error = True
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+        if timed_out:
+            trace.log(
+                "tool_timeout", tool_use_id=block.id, name=block.name, timeout_s=timeout, duration_ms=duration_ms
+            )
+        call.outcome = Outcome("timeout" if timed_out else ("error" if is_error else "succeeded"), text)
+        await guard.after_tool_call(ctx, call, call.outcome)
+    elif isinstance(decision, ReturnResult):
+        text, is_error = decision.text, False
+    elif isinstance(decision, Block):
+        text, is_error = decision.message, True
+    elif isinstance(decision, AskUser):
+        text, is_error = NEEDS_CONFIRMATION + decision.question, True
+    else:
+        raise TypeError(f"guard {guard.name} returned {decision!r}")
     duration_ms = round((time.perf_counter() - start) * 1000, 2)
-    if timed_out:
-        trace.log(
-            "tool_timeout", tool_use_id=block.id, name=block.name, timeout_s=timeout, duration_ms=duration_ms
-        )
+
     trace.log(
         "tool_result",
         tool_use_id=block.id,
@@ -142,18 +200,21 @@ async def dispatch_tool_call(mcp: Client, block, trace: TraceLogger, timeout: fl
         output=text,
         duration_ms=duration_ms,
     )
+    ctx.calls.append(call)
     return {"type": "tool_result", "tool_use_id": block.id, "content": text, "is_error": is_error}
 
 
 @dataclass
 class ToolCallRecord:
-    user_turn: int  # 1-based index of the user message this call belongs to
+    user_turn: int  # 1-based index into RunSummary.turns
     model_turn: int
     name: str
     input: dict
     is_error: bool
     timed_out: bool
     output: str
+    forced: bool = False
+    decision: str = "execute"  # guard decision kind; the tool ran only for "execute"
 
 
 @dataclass
@@ -182,6 +243,7 @@ class TurnRecord:
     user_text: str
     reply: str
     api_error: str | None = None
+    source: str = "script"  # "script" | "on_ask" | "forced" (a forced tool call, not a user message)
 
 
 @dataclass
@@ -201,7 +263,7 @@ class RunSummary:
 
 
 class AgentSession:
-    """One agent conversation: an MCP server process, a trace, and message history.
+    """One agent conversation: an MCP server process, a trace, message history and a guard.
 
     async with AgentSession(model) as s:
         reply = await s.send("charge customer 881 $50")
@@ -215,6 +277,9 @@ class AgentSession:
         tool_timeout: float | None = None,
         run_id: str | None = None,
         exclude_tools: Sequence[str] = (),
+        guard: Guard | None = None,
+        tenant_id: str = DEFAULT_TENANT,
+        llm=None,
     ):
         self.model = model
         self.db_path = db_path if db_path is not None else os.environ.get("DOUBLETAKE_DB")
@@ -222,10 +287,14 @@ class AgentSession:
         self.tool_timeout = default_tool_timeout() if tool_timeout is None else tool_timeout
         self.run_id = run_id or new_run_id()
         self.exclude_tools = set(exclude_tools)  # hidden from the model and refused if called
+        self.guard = guard or NoneGuard()
+        self.tenant_id = tenant_id
         self.trace = TraceLogger(self.run_id)
         self.summary = RunSummary(run_id=self.run_id, trace_path=self.trace.path, model=model)
         self.messages: list = []
-        self._llm = anthropic.AsyncAnthropic()  # reads ANTHROPIC_API_KEY from the environment
+        self.guard_ctx = GuardContext(run_id=self.run_id, tenant_id=tenant_id, messages=self.messages)
+        # Anything with an async .messages.create(**kwargs) works (tests pass a fake).
+        self._llm = llm if llm is not None else anthropic.AsyncAnthropic()
         self._client: Client | None = None
         self.mcp: Client | None = None
         self.tools: list[dict] = []
@@ -249,6 +318,8 @@ class AgentSession:
             faults_path=str(self.faults_path) if self.faults_path else None,
             faults=_read_json(self.faults_path),
             excluded_tools=sorted(self.exclude_tools),
+            guard=self.guard.name,
+            tenant_id=self.tenant_id,
             tools=[
                 {**t, "annotations": m.annotations.model_dump() if m.annotations else None}
                 for t, m in zip(self.tools, mcp_tools)
@@ -264,30 +335,89 @@ class AgentSession:
             self.trace.log("run_end", usage={**asdict(self.summary.usage), "total": self.summary.usage.total})
             self.trace.close()
 
-    async def send(self, user_text: str) -> str:
+    async def send(self, user_text: str, source: str = "script") -> str:
         """Send one user message and run tools until the model stops.
 
         On an API error the message history is restored to exactly what it was
         before this user message, and the error is re-raised.
         """
+        record = TurnRecord(user_text=user_text, reply="", source=source)
+
+        def start() -> None:
+            self.messages.append({"role": "user", "content": user_text})
+            self.trace.log("user_message", text=user_text, source=source)
+
+        return await self._turn(record, start)
+
+    async def force_tool_call(self, name: str, tool_input: dict) -> str:
+        """Inject an assistant tool call as if the model had made it after its last
+        reply, run it through the guard exactly like a model call, then let the
+        model continue. Returns the model's continuation text.
+        """
+        if not self.messages or self.messages[-1]["role"] != "assistant":
+            raise RuntimeError("force_tool_call needs the conversation to end on an assistant message")
+        tool_use_id = "toolu_forced_" + uuid.uuid4().hex[:16]
+        record = TurnRecord(user_text=f"[forced {name}({json.dumps(tool_input)})]", reply="", source="forced")
         user_turn = len(self.summary.turns) + 1
+
+        async def start() -> None:
+            last = self.messages[-1]
+            content = last["content"]
+            content = [content] if isinstance(content, str) else list(content)
+            content = [{"type": "text", "text": c} if isinstance(c, str) else c for c in content]
+            content = [c.to_dict() if hasattr(c, "to_dict") else c for c in content]
+            block = {"type": "tool_use", "id": tool_use_id, "name": name, "input": tool_input}
+            self.messages[-1] = {"role": "assistant", "content": content + [block]}
+            self.trace.log("forced_tool_call", tool_use_id=tool_use_id, name=name, input=tool_input)
+            result = await self._run_tool(SimpleNamespace(**block), user_turn, model_turn=0, forced=True)
+            self.messages.append({"role": "user", "content": [result]})
+
+        return await self._turn(record, start)
+
+    async def _turn(self, record: TurnRecord, start) -> str:
         checkpoint = len(self.messages)
-        record = TurnRecord(user_text=user_text, reply="")
+        saved_last = self.messages[-1] if self.messages else None
         self.summary.turns.append(record)
+        user_turn = len(self.summary.turns)
         try:
-            record.reply = await self._run_turn(user_text, user_turn)
+            res = start()
+            if asyncio.iscoroutine(res):
+                await res
+            record.reply = await self._model_loop(user_turn)
         except anthropic.APIError as e:
             del self.messages[checkpoint:]
+            if saved_last is not None and self.messages:
+                self.messages[-1] = saved_last  # undo a forced call appended to the last assistant message
             record.api_error = f"{type(e).__name__}: {e}"
             self.trace.log("api_error", error=record.api_error, rolled_back_to=checkpoint)
             raise
         return record.reply
 
-    async def _run_turn(self, user_text: str, user_turn: int) -> str:
-        messages = self.messages
-        messages.append({"role": "user", "content": user_text})
-        self.trace.log("user_message", text=user_text)
+    async def _run_tool(self, block, user_turn: int, model_turn: int, forced: bool = False) -> dict:
+        if block.name in self.exclude_tools:  # not offered to the model; never run it
+            self.trace.log("tool_refused", tool_use_id=block.id, name=block.name)
+            res = {"type": "tool_result", "tool_use_id": block.id,
+                   "content": f"unknown tool: {block.name}", "is_error": True}
+            decision, timed_out = "refused", False
+        else:
+            res = await dispatch_tool_call(
+                self.mcp, block, self.trace, self.tool_timeout,
+                guard=self.guard, ctx=self.guard_ctx, forced=forced,
+            )
+            call = self.guard_ctx.calls[-1]
+            decision = call.decision.kind
+            timed_out = call.outcome is not None and call.outcome.status == "timeout"
+        self.summary.tool_calls.append(
+            ToolCallRecord(
+                user_turn=user_turn, model_turn=model_turn, name=block.name, input=dict(block.input),
+                is_error=res["is_error"], timed_out=timed_out, output=res["content"],
+                forced=forced, decision=decision,
+            )
+        )
+        return res
 
+    async def _model_loop(self, user_turn: int) -> str:
+        messages = self.messages
         final_text = ""
         for turn in range(1, MAX_MODEL_TURNS + 1):
             start = time.perf_counter()
@@ -323,24 +453,7 @@ class AgentSession:
             tool_results = []
             for block in response.content:
                 if block.type == "tool_use":
-                    if block.name in self.exclude_tools:  # not offered to the model; never run it
-                        self.trace.log("tool_refused", tool_use_id=block.id, name=block.name)
-                        res = {"type": "tool_result", "tool_use_id": block.id,
-                               "content": f"unknown tool: {block.name}", "is_error": True}
-                    else:
-                        res = await dispatch_tool_call(self.mcp, block, self.trace, self.tool_timeout)
-                    tool_results.append(res)
-                    self.summary.tool_calls.append(
-                        ToolCallRecord(
-                            user_turn=user_turn,
-                            model_turn=turn,
-                            name=block.name,
-                            input=dict(block.input),
-                            is_error=res["is_error"],
-                            timed_out=res["content"] == TIMEOUT_TEXT and res["is_error"],
-                            output=res["content"],
-                        )
-                    )
+                    tool_results.append(await self._run_tool(block, user_turn, turn))
             # All results go back in a single user message.
             messages.append({"role": "user", "content": tool_results})
 
@@ -357,6 +470,43 @@ def _read_json(path) -> dict | None:
         return None
 
 
+def summary_from_trace(path: Path) -> RunSummary:
+    """Rebuild a RunSummary from a JSONL trace (the same fields AgentSession fills in)."""
+    events = [json.loads(line) for line in Path(path).read_text().splitlines() if line.strip()]
+    start = next(e for e in events if e["event"] == "run_start")
+    s = RunSummary(run_id=start["run_id"], trace_path=Path(path), model=start["model"])
+    calls = {e["tool_use_id"]: e for e in events if e["event"] == "tool_call"}
+    decisions = {e["tool_use_id"]: e["decision"] for e in events if e["event"] == "guard_decision"}
+    refused = {e["tool_use_id"] for e in events if e["event"] == "tool_refused"}
+    timeouts = {e["tool_use_id"] for e in events if e["event"] == "tool_timeout"}
+    model_turn = 0
+    for e in events:
+        ev = e["event"]
+        if ev == "user_message":
+            s.turns.append(TurnRecord(user_text=e["text"], reply="", source=e.get("source", "script")))
+            model_turn = 0
+        elif ev == "forced_tool_call":
+            s.turns.append(TurnRecord(
+                user_text=f"[forced {e['name']}({json.dumps(e['input'])})]", reply="", source="forced"))
+            model_turn = 0
+        elif ev == "model_turn":
+            model_turn = e["turn"]
+            s.usage.add(SimpleNamespace(**(e.get("usage") or {})))
+            s.turns[-1].reply = "\n".join(b["text"] for b in e["content"] if b.get("type") == "text")
+        elif ev == "tool_result":
+            tid = e["tool_use_id"]
+            call = calls.get(tid, {})
+            s.tool_calls.append(ToolCallRecord(
+                user_turn=len(s.turns), model_turn=model_turn, name=e["name"], input=call.get("input", {}),
+                is_error=e["is_error"], timed_out=tid in timeouts, output=e["output"],
+                forced=bool(call.get("forced", False)),
+                decision="refused" if tid in refused else decisions.get(tid, "execute"),
+            ))
+        elif ev == "api_error" and s.turns:
+            s.turns[-1].api_error = e["error"]
+    return s
+
+
 # A user turn is either fixed text, or a function that looks at the run so far
 # and returns the next message (or None to skip it).
 UserTurn = str | Callable[[RunSummary], str | None]
@@ -370,6 +520,8 @@ async def run_conversation(
     tool_timeout: float | None = None,
     run_id: str | None = None,
     exclude_tools: Sequence[str] = (),
+    guard: Guard | None = None,
+    tenant_id: str = DEFAULT_TENANT,
 ) -> RunSummary:
     """Run a scripted conversation without the REPL and return its summary.
 
@@ -378,7 +530,9 @@ async def run_conversation(
     error stops the conversation (it is recorded in the summary and the trace).
     """
     model = model or os.environ.get("ANTHROPIC_MODEL", DEFAULT_MODEL)
-    async with AgentSession(model, db_path, faults_path, tool_timeout, run_id, exclude_tools) as session:
+    async with AgentSession(
+        model, db_path, faults_path, tool_timeout, run_id, exclude_tools, guard=guard, tenant_id=tenant_id
+    ) as session:
         for turn in user_turns:
             text = turn(session.summary) if callable(turn) else turn
             if text is None:

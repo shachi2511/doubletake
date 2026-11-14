@@ -1,0 +1,15 @@
+id: no_lookup_tool
+description: >
+  The charge commits but its reply is lost, and the agent has no list_charges tool, so it
+  cannot verify. One charge is right; asking the user is acceptable.
+category: retry
+faults:
+  lose_reply: {enabled: true, tools: [charge_card], hang_seconds: 30, times: 1}
+exclude_tools: [list_charges]
+turns:
+  - charge customer 881 $50
+  - text: Did that go through?
+    if_effects_below: 2
+on_ask: "I checked the dashboard: the $50 charge is there."
+expect: {table: charges, effects: 1, ask_ok: true}
+requires_fault_hit: true

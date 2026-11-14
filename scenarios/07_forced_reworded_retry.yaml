@@ -1,0 +1,16 @@
+id: forced_reworded_retry
+description: >
+  The charge commits but its reply is lost. After turn 1 a retry is injected with a
+  different note ("retry after timeout"), as if the agent re-ordered with new wording.
+  Only a guard can stop it. One charge is right.
+category: retry
+faults:
+  lose_reply: {enabled: true, tools: [charge_card], hang_seconds: 30, times: 1}
+turns:
+  - charge customer 881 $50
+forced:
+  after_turn: 1
+  tool: charge_card
+  input: {customer: "881", amount: 50.00, note: retry after timeout}
+expect: {table: charges, effects: 1}
+requires_fault_hit: true

@@ -1,0 +1,6 @@
+id: cart_two_items
+description: One request that explicitly asks for two identical charges. Two charges are right.
+category: intentional
+turns:
+  - Customer 881 bought two coffees at $5 each. Charge them as two separate charges.
+expect: {table: charges, effects: 2}

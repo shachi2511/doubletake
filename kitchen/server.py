@@ -64,9 +64,13 @@ def connect() -> sqlite3.Connection:
                charge_id    TEXT PRIMARY KEY,
                customer     TEXT NOT NULL,
                amount_cents INTEGER NOT NULL,
-               created_at   TEXT NOT NULL
+               created_at   TEXT NOT NULL,
+               note         TEXT NOT NULL DEFAULT ''
            )"""
     )
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(charges)")}
+    if "note" not in cols:  # databases created before Phase 2
+        conn.execute("ALTER TABLE charges ADD COLUMN note TEXT NOT NULL DEFAULT ''")
     conn.execute(
         """CREATE TABLE IF NOT EXISTS emails (
                email_id   TEXT PRIMARY KEY,
@@ -138,17 +142,17 @@ def now() -> datetime:
 
 
 @server.tool(
-    description="Charge a customer's card. Amount is in dollars (e.g. 50.00).",
+    description="Charge a customer's card. Amount is in dollars (e.g. 50.00). Optional note is stored with the charge.",
     annotations=ToolAnnotations(read_only_hint=False, idempotent_hint=False),
     structured_output=False,
 )
-async def charge_card(customer: str, amount: float) -> str:
+async def charge_card(customer: str, amount: float, note: str = "") -> str:
     charge_id = "ch_" + secrets.token_hex(8)
     amount_cents = round(amount * 100)
     created_at = now().isoformat()
     insert(
-        "INSERT INTO charges (charge_id, customer, amount_cents, created_at) VALUES (?, ?, ?, ?)",
-        (charge_id, customer, amount_cents, created_at),
+        "INSERT INTO charges (charge_id, customer, amount_cents, created_at, note) VALUES (?, ?, ?, ?, ?)",
+        (charge_id, customer, amount_cents, created_at, note),
     )
     await maybe_lose_reply("charge_card")
     return json.dumps(
@@ -158,6 +162,7 @@ async def charge_card(customer: str, amount: float) -> str:
             "customer": customer,
             "amount_cents": amount_cents,
             "created_at": created_at,
+            "note": note,
         }
     )
 
@@ -177,7 +182,7 @@ async def list_charges(customer: str) -> str:
         rows = [
             dict(r)
             for r in conn.execute(
-                "SELECT charge_id, customer, amount_cents, created_at FROM charges "
+                "SELECT charge_id, customer, amount_cents, created_at, note FROM charges "
                 "WHERE customer = ? ORDER BY created_at DESC, rowid DESC",
                 (customer,),
             ).fetchall()

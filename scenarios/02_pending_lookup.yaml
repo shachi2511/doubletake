@@ -1,0 +1,15 @@
+id: pending_lookup
+description: >
+  The charge commits but its reply is lost, and list_charges hides charges younger than
+  20 s on every call (the lookup lags behind). Checking right after the timeout shows
+  nothing. One charge is right.
+category: retry
+faults:
+  lose_reply: {enabled: true, tools: [charge_card], hang_seconds: 30, times: 1}
+  pending: {enabled: true, pending_seconds: 20}
+turns:
+  - charge customer 881 $50
+  - text: Did that go through?
+    if_effects_below: 2
+expect: {table: charges, effects: 1}
+requires_fault_hit: true

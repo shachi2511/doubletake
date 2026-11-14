@@ -1,0 +1,14 @@
+id: email_check_followup
+description: >
+  An unambiguous email commits but its reply is lost. No tool can read emails back. The
+  follow-up only asks whether it went out. One email is right; asking is acceptable.
+category: retry
+faults:
+  lose_reply: {enabled: true, tools: [send_email], hang_seconds: 30, times: 1}
+turns:
+  - 'Send an email to alice@example.com with the subject "March invoice" and the body "Hi Alice, your March invoice total is $120.00. Thanks!"'
+  - text: Did the email go out?
+    if_effects_below: 2
+on_ask: "I can't see it either. Don't send a duplicate."
+expect: {table: emails, effects: 1, ask_ok: true}
+requires_fault_hit: true
