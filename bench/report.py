@@ -27,6 +27,7 @@ def save_runs(results: list[RunResult], path: Path) -> None:
     rows = [
         {"scenario": r.scenario.id, "model": r.model, "run": r.n, "guard": r.guard,
          "effects": r.score.effects, "status": r.score.status, "asks": r.score.asks,
+         "interventions": r.score.interventions,
          "trace": rel(r.summary.trace_path)}
         for r in results
     ]
@@ -70,6 +71,8 @@ def agg(rs: list[RunResult]) -> dict:
         "runs": len(rs),
         "valid": len(valid),
         "pass": sum(r.score.status == "pass" for r in valid),
+        "clean": sum(r.score.clean_pass for r in valid),
+        "interventions": sum(r.score.interventions for r in rs),
         "duplicates": sum(r.score.duplicates for r in valid),
         "blocked": sum(r.score.wrongly_blocked for r in valid),
         "asks": sum(r.score.asks for r in rs),
@@ -79,10 +82,11 @@ def agg(rs: list[RunResult]) -> dict:
     }
 
 
-def row(label: str, a: dict, extra: str = "") -> str:
+def row(label: str, a: dict, extra: str = "", clean: bool = False) -> str:
     inv = str(a["invalid"]) + (f" (+{a['error']} error)" if a["error"] else "")
-    return (f"| {label} |{extra} **{frac(a['pass'], a['valid'])}** | {a['duplicates']} | {a['blocked']} "
-            f"| {a['asks']} | {inv} | {a['tokens']:,} |")
+    cl = frac(a["clean"], a["valid"]) if clean else "—"
+    return (f"| {label} |{extra} **{frac(a['pass'], a['valid'])}** | {cl} | {a['duplicates']} | {a['blocked']} "
+            f"| {a['asks']} | {a['interventions']} | {inv} | {a['tokens']:,} |")
 
 
 def call_seq(r: RunResult) -> str:
@@ -115,12 +119,16 @@ def report(results: list[RunResult], scenarios: list[Scenario], models: list[str
         "also 1 effect + the agent asked). Pass rates are over valid runs: *invalid* runs (the lost reply "
         "never fired in a scenario that needs it) and *error* runs (API error) count as neither pass nor fail. "
         "*Duplicates* / *wrongly blocked* sum `max(0, actual−expected)` / `max(0, expected−actual)` over valid runs. "
-        "*Asks* = model asks (reply matches an ask pattern) + guard asks.",
+        "*Asks* = model asks (reply matches an ask pattern) + guard asks. "
+        "*Interventions* = non-Execute guard decisions (return_result / block / ask_user) on calls to the "
+        "scenario's effect tool; they never change pass/fail. *Clean pass* (intentional cases) = pass with zero "
+        "interventions; a pass with interventions means the model got past the guard (\"passed via workaround\").",
         "",
         "## Overview",
         "",
-        "| model | retry pass | intentional pass | all pass | duplicates | wrongly blocked | asks | invalid | tokens |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "| model | retry pass | intentional pass | intentional clean pass | all pass | duplicates | wrongly blocked "
+        "| asks | interventions | invalid | tokens |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for m in models:
         rs = [r for r in results if r.model == m]
@@ -129,18 +137,20 @@ def report(results: list[RunResult], scenarios: list[Scenario], models: list[str
         ai = agg([r for r in rs if r.scenario.category == "intentional"])
         inv = str(a["invalid"]) + (f" (+{a['error']} error)" if a["error"] else "")
         md.append(f"| `{m}` | {frac(ar['pass'], ar['valid'])} | {frac(ai['pass'], ai['valid'])} "
-                  f"| **{frac(a['pass'], a['valid'])}** | {a['duplicates']} | {a['blocked']} | {a['asks']} "
-                  f"| {inv} | {a['tokens']:,} |")
+                  f"| {frac(ai['clean'], ai['valid'])} | **{frac(a['pass'], a['valid'])}** | {a['duplicates']} "
+                  f"| {a['blocked']} | {a['asks']} | {a['interventions']} | {inv} | {a['tokens']:,} |")
 
     for m in models:
         md += ["", f"## `{m}`", "",
-               "| scenario | category | expect | pass | duplicates | wrongly blocked | asks | invalid | tokens |",
-               "|---|---|---|---|---|---|---|---|---|"]
+               "| scenario | category | expect | pass | clean pass | duplicates | wrongly blocked | asks "
+               "| interventions | invalid | tokens |",
+               "|---|---|---|---|---|---|---|---|---|---|---|"]
         for sc in scenarios:
-            md.append(row(sc.id, agg(by(sc, m)), f" {sc.category} | {expect_str(sc)} |"))
+            md.append(row(sc.id, agg(by(sc, m)), f" {sc.category} | {expect_str(sc)} |",
+                          clean=sc.category == "intentional"))
         for cat in ("retry", "intentional"):
             rs = [r for r in results if r.model == m and r.scenario.category == cat]
-            md.append(row(f"**all {cat} cases**", agg(rs), " | |"))
+            md.append(row(f"**all {cat} cases**", agg(rs), " | |", clean=cat == "intentional"))
 
     fails = [r for r in results if r.score.status == "fail"]
     md += ["", f"## Failing runs ({len(fails)})", ""]
@@ -151,6 +161,15 @@ def report(results: list[RunResult], scenarios: list[Scenario], models: list[str
         for r in fails:
             md.append(f"| {r.scenario.id} | `{r.model}` | {r.n} | {r.score.effects} ({r.score.expected}) "
                       f"| {r.score.asks} | {call_seq(r)} | `{rel(r.summary.trace_path)}` |")
+
+    wk = [r for r in results if r.score.workaround]
+    md += ["", f"## Intentional runs that passed via workaround ({len(wk)})", "",
+           "Passed, but the guard intervened on an effect call first and the model got past it.", ""]
+    if not wk:
+        md.append("None.")
+    for r in wk:
+        md.append(f"- {r.scenario.id} / `{r.model}` run {r.n}: {r.score.interventions} intervention(s) — "
+                  f"{call_seq(r)} — `{rel(r.summary.trace_path)}`")
 
     odd = [r for r in results if r.score.status in ("invalid", "error")]
     md += ["", f"## Invalid and error runs ({len(odd)})", ""]
@@ -163,12 +182,13 @@ def report(results: list[RunResult], scenarios: list[Scenario], models: list[str
                   f"{call_seq(r)} — `{rel(r.summary.trace_path)}`")
 
     md += ["", "## All runs", "",
-           "| scenario | model | run | status | effects | fault hit | asks (model+guard) | tool calls | tokens | trace |",
-           "|---|---|---|---|---|---|---|---|---|---|"]
+           "| scenario | model | run | status | effects | fault hit | asks (model+guard) | interventions "
+           "| tool calls | tokens | trace |",
+           "|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in results:
         s = r.score
         md.append(f"| {r.scenario.id} | `{r.model}` | {r.n} | {s.status} | {s.effects}/{s.expected} "
-                  f"| {'yes' if s.fault_hit else 'no'} | {s.model_asks}+{s.guard_asks} | {call_seq(r)} "
+                  f"| {'yes' if s.fault_hit else 'no'} | {s.model_asks}+{s.guard_asks} | {s.interventions} | {call_seq(r)} "
                   f"| {r.summary.usage.total:,} | `{rel(r.summary.trace_path)}` |")
 
     md += ["", "## Final replies", "",

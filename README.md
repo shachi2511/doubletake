@@ -124,6 +124,26 @@ The full rules are in `bench/score.py`.
 New trace events: `guard_decision`, `forced_tool_call`, `turn_skipped`, `scenario`, `score`.
 `user_message` gains `source` (`script` | `on_ask`), and `tool_call` gains `forced`.
 
+## Phase 3: existing approaches as guards
+
+```bash
+.venv/bin/pip install -r requirements-baselines.txt    # agent-ledger, mycelium-runtime (pinned)
+.venv/bin/python -m bench.run --guard verify_before_retry --models claude-haiku-5-5 --runs 2 --results-dir results/phase3
+.venv/bin/python -m bench.compare                     # -> results/phase3/compare.md
+```
+
+| guard | what it is |
+|---|---|
+| `exact_hash` | caches successful results by tool + normalized args; replays exact repeats |
+| `agent_ledger` | `agent-ledger` 0.2.1: begin/commit per (run, tool, args); failed effects block identical retries |
+| `mycelium` | `mycelium-runtime` 1.38.6, manual claim/complete: ledger + loop guard + args-drift gate + charge reconciler |
+| `mycelium_turnkey` | same, plus a host `request_id` = `{run_id}:user_turn_{N}:{tool}` |
+| `verify_before_retry` | ours, after arXiv 2608.02645: after a failed similar call, verify via `list_charges` (or ask, for email) |
+
+Guards can call `ctx.lookup(tool, args)` for read-only tools the model also has. These calls are logged as `guard_lookup` and never shown to the model.
+
+Reports also count *interventions* (non-Execute decisions on the effect tool) and *clean passes* (intentional runs that passed with no intervention). Wiring and fairness notes are in `results/phase3/notes.md`.
+
 ### Next phases
 
 `dispatch_tool_call()` in `agent/loop.py` is the single place side effects happen; later phases add a guard in front of it.

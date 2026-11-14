@@ -8,15 +8,35 @@ from agent.guards.base import (
     Execute,
     Guard,
     GuardContext,
+    LookupRefused,
     Outcome,
     ReturnResult,
     ToolCall,
 )
+from agent.guards.exact_hash import ExactHashGuard
 from agent.guards.none import NoneGuard
+from agent.guards.verify_before_retry import VerifyBeforeRetryGuard
 
 GUARDS: dict[str, type[Guard]] = {
     NoneGuard.name: NoneGuard,
+    ExactHashGuard.name: ExactHashGuard,
+    VerifyBeforeRetryGuard.name: VerifyBeforeRetryGuard,
 }
+
+# Third-party baselines (requirements-baselines.txt): registered only if installed.
+try:
+    from agent.guards.agent_ledger_guard import AgentLedgerGuard
+
+    GUARDS[AgentLedgerGuard.name] = AgentLedgerGuard
+except ImportError:  # pragma: no cover
+    pass
+try:
+    from agent.guards.mycelium_guard import MyceliumGuard, MyceliumTurnkeyGuard
+
+    GUARDS[MyceliumGuard.name] = MyceliumGuard
+    GUARDS[MyceliumTurnkeyGuard.name] = MyceliumTurnkeyGuard
+except ImportError:  # pragma: no cover
+    pass
 
 
 def get_guard(name: str) -> Guard:
@@ -27,6 +47,6 @@ def get_guard(name: str) -> Guard:
 
 
 __all__ = [
-    "GUARDS", "NEEDS_CONFIRMATION", "AskUser", "Block", "Decision", "Execute", "Guard", "GuardContext",
+    "GUARDS", "NEEDS_CONFIRMATION", "AskUser", "Block", "Decision", "Execute", "Guard", "GuardContext", "LookupRefused",
     "NoneGuard", "Outcome", "ReturnResult", "ToolCall", "get_guard",
 ]

@@ -292,7 +292,10 @@ class AgentSession:
         self.trace = TraceLogger(self.run_id)
         self.summary = RunSummary(run_id=self.run_id, trace_path=self.trace.path, model=model)
         self.messages: list = []
-        self.guard_ctx = GuardContext(run_id=self.run_id, tenant_id=tenant_id, messages=self.messages)
+        self.guard_ctx = GuardContext(
+            run_id=self.run_id, tenant_id=tenant_id, messages=self.messages,
+            excluded_tools=frozenset(self.exclude_tools), _lookup=self._guard_lookup, _log=self.trace.log,
+        )
         # Anything with an async .messages.create(**kwargs) works (tests pass a fake).
         self._llm = llm if llm is not None else anthropic.AsyncAnthropic()
         self._client: Client | None = None
@@ -307,6 +310,9 @@ class AgentSession:
         except BaseException:
             self.trace.close()
             raise
+        self.guard_ctx.read_only_tools = frozenset(
+            t.name for t in mcp_tools if t.annotations is not None and t.annotations.read_only_hint
+        )
         mcp_tools = [t for t in mcp_tools if t.name not in self.exclude_tools]
         self.tools = mcp_tools_to_anthropic(mcp_tools)
         self.trace.log(
@@ -392,6 +398,22 @@ class AgentSession:
             self.trace.log("api_error", error=record.api_error, rolled_back_to=checkpoint)
             raise
         return record.reply
+
+    async def _guard_lookup(self, name: str, args: dict) -> Outcome:
+        """Backs ctx.lookup: same MCP client and timeout as model calls; never shown to the model."""
+        start = time.perf_counter()
+        try:
+            result = await self.mcp.call_tool(name, args, read_timeout_seconds=self.tool_timeout)
+            text = "\n".join(c.text for c in result.content if getattr(c, "type", None) == "text")
+            out = Outcome("error" if result.is_error else "succeeded", text)
+        except (MCPError, TimeoutError) as e:
+            timed_out = isinstance(e, TimeoutError) or e.code == REQUEST_TIMEOUT
+            out = Outcome("timeout", TIMEOUT_TEXT) if timed_out else Outcome("error", f"{type(e).__name__}: {e}")
+        except Exception as e:
+            out = Outcome("error", f"{type(e).__name__}: {e}")
+        self.trace.log("guard_lookup", tool=name, args=args, status=out.status, output=out.text,
+                       duration_ms=round((time.perf_counter() - start) * 1000, 2))
+        return out
 
     async def _run_tool(self, block, user_turn: int, model_turn: int, forced: bool = False) -> dict:
         if block.name in self.exclude_tools:  # not offered to the model; never run it

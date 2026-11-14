@@ -1,0 +1,4 @@
+# Phase 3 baseline guards (third-party libraries), pinned to the versions wired and tested.
+-r requirements.txt
+agent-ledger==0.2.1
+mycelium-runtime==1.38.6

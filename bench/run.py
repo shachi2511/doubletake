@@ -13,6 +13,7 @@ import argparse
 import asyncio
 import os
 import sys
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -50,6 +51,8 @@ def main() -> int:
     ap.add_argument("--concurrency", type=int, default=4)
     ap.add_argument("--tenant", default=DEFAULT_TENANT)
     ap.add_argument("--merge", action="store_true", help="merge with saved runs for this guard")
+    ap.add_argument("--results-dir", default=str(RESULTS_DIR),
+                    help="where <guard>.md and <guard>_runs.json go (default results/phase2)")
     args = ap.parse_args()
     if not os.environ.get("ANTHROPIC_API_KEY"):
         print("ANTHROPIC_API_KEY is not set.", file=sys.stderr)
@@ -64,7 +67,10 @@ def main() -> int:
     results = asyncio.run(run_all(scenarios, models, args.guard, args.runs, args.concurrency,
                                   args.tenant, tool_timeout))
 
-    runs_path = RESULTS_DIR / f"{args.guard}_runs.json"
+    results_dir = Path(args.results_dir)
+    if not results_dir.is_absolute():
+        results_dir = ROOT / results_dir
+    runs_path = results_dir / f"{args.guard}_runs.json"
     if args.merge and runs_path.exists():
         new = {(r.scenario.id, r.model, r.n) for r in results}
         prior = [r for r in load_runs(runs_path, {s.id: s for s in all_scenarios})
@@ -76,7 +82,7 @@ def main() -> int:
     shown = [s for s in all_scenarios if any(r.scenario.id == s.id for r in results)]
 
     save_runs(results, runs_path)
-    out = RESULTS_DIR / f"{args.guard}.md"
+    out = results_dir / f"{args.guard}.md"
     out.write_text(report(results, shown, models, args.guard))
     print(f"\ntotal tokens this invocation+merged: {sum(r.summary.usage.total for r in results):,}")
     print(f"written: {rel(out)}, {rel(runs_path)}")
