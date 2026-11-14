@@ -10,7 +10,9 @@ The server stores charges in SQLite at `data/payments.db`.
 ```
 kitchen/server.py       fake payments MCP server (MCP Python SDK 2.x, MCPServer)
 agent/loop.py           agent loop + REPL; tool calls go through dispatch_tool_call()
-scripts/show_charges.py prints the charges table
+scripts/show_charges.py prints the charges and emails tables (--charges / --emails)
+scripts/demo_double_charge.py  Phase 1 lost-reply demo -> results/phase1_demo.md
+kitchen/faults.json     fault switches (all off)
 data/                   SQLite db (git-ignored)
 logs/                   JSONL traces, one file per run (git-ignored)
 tests/                  pytest, connects to the server in-process
@@ -22,6 +24,7 @@ tests/                  pytest, connects to the server in-process
 |---|---|---|
 | `charge_card` | `customer: str, amount: float` (dollars) | inserts a row, returns `{"charge_id": "ch_…", "status": "succeeded", …}`; annotated not read-only, not idempotent |
 | `list_charges` | `customer: str` | that customer's charges, newest first; annotated `readOnlyHint: true` |
+| `send_email` | `to, subject, body: str` | inserts into `emails`; not read-only, not idempotent; no tool reads emails back (on purpose) |
 
 ### Setup
 
@@ -53,7 +56,36 @@ Set `DOUBLETAKE_DB=/path/to.db` to point the server, agent and `show_charges.py`
 | `model_turn` | `turn`, `model`, `request_id`, `stop_reason`, `latency_ms`, `usage`, `content` |
 | `tool_call` | `tool_use_id`, `name`, `input` |
 | `tool_result` | `tool_use_id`, `name`, `is_error`, `output`, `duration_ms` |
-| `api_error` / `turn_cap_hit` / `run_end` | |
+| `tool_timeout` | `tool_use_id`, `name`, `timeout_s`, `duration_ms` |
+| `api_error` | `error`, `rolled_back_to` |
+| `turn_cap_hit` / `run_end` (`usage`) | |
+
+## Phase 1: fault switches
+
+Faults live in a JSON file (`DOUBLETAKE_FAULTS`, default `kitchen/faults.json`), re-read on every tool call:
+
+```json
+{
+  "lose_reply":   {"enabled": true, "tools": ["charge_card", "send_email"], "hang_seconds": 30, "times": 1},
+  "pending":      {"enabled": true, "pending_seconds": 30, "times": 1},
+  "lookup_fails": {"enabled": true, "hang_seconds": 30, "times": 1}
+}
+```
+
+- `lose_reply`: the row is committed first, then the tool sleeps `hang_seconds`, so the agent times out. The row survives the client cancelling.
+- `pending`: `list_charges` hides charges younger than `pending_seconds`.
+- `lookup_fails`: `list_charges` sleeps `hang_seconds` before answering.
+- `times: N`: only the first N matching calls are affected (counter in server memory; omit for every call).
+
+Tools are async (`asyncio.sleep`), so the server keeps answering while one call hangs.
+
+The agent gives each tool call `DOUBLETAKE_TOOL_TIMEOUT` seconds (default 10). On timeout the model gets
+`is_error: true`, `"timeout: no response from payments service"`. There is no retry logic, and the system prompt is unchanged.
+`run_conversation(user_turns, db_path, faults_path, model)` in `agent/loop.py` runs a scripted conversation and returns a `RunSummary`.
+
+```bash
+.venv/bin/python scripts/demo_double_charge.py --runs 5 --model claude-opus-5-5
+```
 
 ### Next phases
 

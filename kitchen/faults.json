@@ -1,0 +1,5 @@
+{
+  "lose_reply": {"enabled": false, "tools": ["charge_card"], "hang_seconds": 30, "times": 1},
+  "pending": {"enabled": false, "pending_seconds": 30, "times": 1},
+  "lookup_fails": {"enabled": false, "hang_seconds": 30, "times": 1}
+}
