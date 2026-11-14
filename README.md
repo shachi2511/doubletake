@@ -25,6 +25,8 @@ It sits in front of every call to a side-effecting tool and decides one of four 
   - A retry of an unresolved effect is checked with a read-back if one is configured. If the check can't confirm it, nothing new is done.
 - **Honest messages.** Every message the guard returns states the true status: done, unknown or not done. It never replays an error.
 
+![How DoubleTake decides on every tool call](docs/images/how-it-decides.png)
+
 ## Quickstart
 
 ```bash
@@ -77,6 +79,12 @@ These come from a benchmark against a fake payments service, with faults injecte
 | **doubletake** | **24/24 (100%)** | **27/30 (90%)** | **21/30** | **0** | **3** |
 
 All three of doubletake's held-out failures come from one scenario with a design flaw. The full write-up, including what doesn't work, is in [docs/RESULTS.md](docs/RESULTS.md).
+
+### Compared with existing fixes
+
+![What each approach asks, and what it misses](docs/images/vs-other-fixes.png)
+
+![Mistakes in both directions: duplicates and wrongly blocked orders](docs/images/findings.png)
 
 ## Repository layout
 
