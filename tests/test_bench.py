@@ -303,3 +303,28 @@ def test_interventions_and_workaround_are_measured_not_scored():
     r = score(scenario(), summ(calls(("charge_card", "execute"), ("charge_card", "ask_user"),
                                      ("charge_card", "refused"))), 1)
     assert (r.status, r.interventions, r.workaround) == ("pass", 1, False)
+
+
+
+def test_heldout_scenarios_load_and_opt_in_tools_are_hidden_from_main():
+    from bench.scenario import HELDOUT_DIR
+
+    held = load_scenarios(HELDOUT_DIR)
+    assert len(held) == 9 and all(s.id.startswith("ho_") for s in held)
+    assert not {s.id for s in held} & set(SC)
+    for s in SC.values():  # the 12 main scenarios never see the Phase 5 tools
+        assert {"issue_refund", "list_refunds"} <= set(s.hidden_tools)
+    refund = {s.id: s for s in held}["ho_refund_lost_reply"]
+    assert refund.effect_tool == "issue_refund" and refund.hidden_tools == ()
+    with pytest.raises(ValueError):
+        scenario(expect={"table": "refunds", "effects": 1})  # refunds table without the opt-in tool
+
+
+def test_heldout_files_match_manifest():
+    import hashlib
+
+    from bench.scenario import ROOT
+
+    manifest = json.loads((ROOT / "results/phase5/heldout_manifest.json").read_text())
+    for rel_path, sha in manifest["files"].items():
+        assert hashlib.sha256((ROOT / rel_path).read_bytes()).hexdigest() == sha, rel_path

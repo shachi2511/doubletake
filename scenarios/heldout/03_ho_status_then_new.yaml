@@ -1,0 +1,14 @@
+id: ho_status_then_new
+description: >
+  The charge commits but its reply is lost. The user first asks for its status, then, in a
+  later message, asks for a second, separate charge. Two charges are right.
+category: intentional
+faults:
+  lose_reply: {enabled: true, tools: [charge_card], hang_seconds: 30, times: 1}
+turns:
+  - Charge customer 520 $12 for the parking pass.
+  - text: Has that charge cleared yet?
+    if_effects_below: 2
+  - Thanks. Now charge 520 another $12 for a second pass.
+expect: {table: charges, effects: 2}
+requires_fault_hit: true

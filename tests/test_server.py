@@ -47,7 +47,9 @@ def text(res):
 async def test_charge_then_list(env):
     async with Client(server) as client:
         tools = {t.name: t for t in (await client.list_tools()).tools}
-        assert set(tools) == {"charge_card", "list_charges", "send_email"}
+        assert set(tools) == {"charge_card", "list_charges", "send_email", "issue_refund", "list_refunds"}
+        assert tools["list_refunds"].annotations.read_only_hint is True
+        assert tools["issue_refund"].annotations.read_only_hint is False
         assert tools["list_charges"].annotations.read_only_hint is True
         assert tools["send_email"].annotations.read_only_hint is False
         assert tools["send_email"].annotations.idempotent_hint is False
@@ -282,7 +284,7 @@ async def test_session_exclude_tools_hides_tool(tmp_path, monkeypatch):
     monkeypatch.setattr(loop, "LOG_DIR", tmp_path / "logs")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-not-used")
     async with loop.AgentSession("fake", tmp_path / "s.db", tmp_path / "none.json", exclude_tools=["list_charges"]) as s:
-        assert {t["name"] for t in s.tools} == {"charge_card", "send_email"}
+        assert {t["name"] for t in s.tools} == {"charge_card", "send_email", "issue_refund", "list_refunds"}
 
 
 async def test_charge_note_stored_and_listed(env):
@@ -305,3 +307,18 @@ async def test_old_database_gets_note_column(env):
         await client.call_tool("charge_card", {"customer": "881", "amount": 5, "note": "n"})
         charges = text(await client.call_tool("list_charges", {"customer": "881"}))["charges"]
     assert {c["charge_id"]: c["note"] for c in charges}["ch_old"] == ""
+
+
+
+async def test_refund_tools_and_faults(env):
+    env.set({"lose_reply": {"enabled": True, "tools": ["issue_refund"], "hang_seconds": 3, "times": 1}})
+    async with Client(server) as client:
+        with pytest.raises(MCPError):
+            await client.call_tool("issue_refund", {"customer": "7", "amount": 9, "reason": "late"},
+                                   read_timeout_seconds=0.3)
+        res = await client.call_tool("issue_refund", {"customer": "7", "amount": 9, "reason": "late"})
+        assert text(res)["refund_id"].startswith("re_") and text(res)["amount_cents"] == 900
+        env.set({"pending": {"enabled": True, "pending_seconds": 30, "times": 1}})
+        assert text(await client.call_tool("list_refunds", {"customer": "7"}))["refunds"] == []
+        assert len(text(await client.call_tool("list_refunds", {"customer": "7"}))["refunds"]) == 2
+    assert len(rows(env.db, "refunds")) == 2

@@ -21,7 +21,7 @@ from agent.guards import GUARDS
 from agent.loop import DEFAULT_TENANT, ROOT
 from bench.driver import RunResult, run_scenario
 from bench.report import RESULTS_DIR, load_runs, rel, report, save_runs
-from bench.scenario import load_scenarios
+from bench.scenario import HELDOUT_DIR, load_scenarios
 
 
 async def run_all(scenarios, models, guard, runs, concurrency, tenant_id, tool_timeout) -> list[RunResult]:
@@ -32,7 +32,7 @@ async def run_all(scenarios, models, guard, runs, concurrency, tenant_id, tool_t
             r = await run_scenario(sc, m, guard, n, tenant_id=tenant_id, tool_timeout=tool_timeout)
         s = r.score
         print(f"{sc.id:28} {m.removeprefix('claude-'):12} run {n}: {s.status.upper():7} "
-              f"{s.effects}/{s.expected} {sc.expect.table} | asks {s.asks} | {r.summary.usage.total:,} tok",
+              f"{s.effects}/{s.expected} {sc.expect.table} | asks {s.asks} | {r.summary.total_tokens:,} tok",
               flush=True)
         return r
 
@@ -47,7 +47,9 @@ def main() -> int:
     ap.add_argument("--models", default=os.environ.get("ANTHROPIC_MODEL", "claude-opus-5-5"),
                     help="comma-separated model ids")
     ap.add_argument("--runs", type=int, default=1, help="runs per scenario × model")
-    ap.add_argument("--scenarios", help="comma-separated scenario ids (default: all)")
+    ap.add_argument("--scenarios", help="comma-separated scenario ids (default: every scenario in --set)")
+    ap.add_argument("--set", default="main", choices=["main", "heldout", "all"],
+                    help="main = scenarios/*.yaml, heldout = scenarios/heldout/*.yaml")
     ap.add_argument("--concurrency", type=int, default=4)
     ap.add_argument("--tenant", default=DEFAULT_TENANT)
     ap.add_argument("--merge", action="store_true", help="merge with saved runs for this guard")
@@ -58,9 +60,11 @@ def main() -> int:
         print("ANTHROPIC_API_KEY is not set.", file=sys.stderr)
         return 1
 
-    all_scenarios = load_scenarios()
+    all_scenarios = load_scenarios(include_heldout=True)  # for merging / rebuilding any saved run
+    in_set = {"main": load_scenarios(), "heldout": load_scenarios(HELDOUT_DIR), "all": all_scenarios}[args.set]
     ids = [s.strip() for s in args.scenarios.split(",")] if args.scenarios else None
-    scenarios = load_scenarios(ids=ids) if ids else all_scenarios
+    by_id = {s.id: s for s in all_scenarios}
+    scenarios = [by_id[i] for i in ids] if ids else in_set
     models = [m.strip() for m in args.models.split(",") if m.strip()]
     tool_timeout = float(os.environ.get("DOUBLETAKE_TOOL_TIMEOUT", 10))
 
@@ -84,7 +88,7 @@ def main() -> int:
     save_runs(results, runs_path)
     out = results_dir / f"{args.guard}.md"
     out.write_text(report(results, shown, models, args.guard))
-    print(f"\ntotal tokens this invocation+merged: {sum(r.summary.usage.total for r in results):,}")
+    print(f"\ntotal tokens this invocation+merged: {sum(r.summary.total_tokens for r in results):,}")
     print(f"written: {rel(out)}, {rel(runs_path)}")
     return 0
 

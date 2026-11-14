@@ -253,12 +253,19 @@ class RunSummary:
     model: str
     turns: list[TurnRecord] = field(default_factory=list)
     tool_calls: list[ToolCallRecord] = field(default_factory=list)
-    usage: Usage = field(default_factory=Usage)
+    usage: Usage = field(default_factory=Usage)  # the agent model's own calls
+    judge_usage: Usage = field(default_factory=Usage)  # guard-side LLM calls (e.g. the DoubleTake intent judge)
+
+    @property
+    def total_tokens(self) -> int:
+        return self.usage.total + self.judge_usage.total
 
     def to_dict(self) -> dict:
         d = asdict(self)
         d["trace_path"] = str(self.trace_path)
         d["usage"]["total"] = self.usage.total
+        d["judge_usage"]["total"] = self.judge_usage.total
+        d["total_tokens"] = self.total_tokens
         return d
 
 
@@ -294,7 +301,7 @@ class AgentSession:
         self.messages: list = []
         self.guard_ctx = GuardContext(
             run_id=self.run_id, tenant_id=tenant_id, messages=self.messages,
-            excluded_tools=frozenset(self.exclude_tools), _lookup=self._guard_lookup, _log=self.trace.log,
+            excluded_tools=frozenset(self.exclude_tools), _lookup=self._guard_lookup, _log=self._guard_log,
         )
         # Anything with an async .messages.create(**kwargs) works (tests pass a fake).
         self._llm = llm if llm is not None else anthropic.AsyncAnthropic()
@@ -315,6 +322,12 @@ class AgentSession:
         )
         mcp_tools = [t for t in mcp_tools if t.name not in self.exclude_tools]
         self.tools = mcp_tools_to_anthropic(mcp_tools)
+        # Prompt caching: breakpoints on the last tool definition and on the system prompt
+        # (render order is tools -> system -> messages). Same text as before, so behaviour is unchanged.
+        self._cached_tools = [dict(t) for t in self.tools]
+        if self._cached_tools:
+            self._cached_tools[-1]["cache_control"] = {"type": "ephemeral"}
+        self._cached_system = [{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}]
         self.trace.log(
             "run_start",
             model=self.model,
@@ -338,7 +351,8 @@ class AgentSession:
             if self._client is not None:
                 await self._client.__aexit__(*exc)
         finally:
-            self.trace.log("run_end", usage={**asdict(self.summary.usage), "total": self.summary.usage.total})
+            self.trace.log("run_end", usage={**asdict(self.summary.usage), "total": self.summary.usage.total},
+                           judge_usage={**asdict(self.summary.judge_usage), "total": self.summary.judge_usage.total})
             self.trace.close()
 
     async def send(self, user_text: str, source: str = "script") -> str:
@@ -399,6 +413,13 @@ class AgentSession:
             raise
         return record.reply
 
+    def _guard_log(self, event: str, **fields) -> None:
+        """Trace writer handed to guards. `judge_call` events carry a `usage` dict, which
+        is added to the run's judge_usage (and so to its token total)."""
+        if event == "judge_call" and fields.get("usage"):
+            self.summary.judge_usage.add(SimpleNamespace(**fields["usage"]))
+        self.trace.log(event, **fields)
+
     async def _guard_lookup(self, name: str, args: dict) -> Outcome:
         """Backs ctx.lookup: same MCP client and timeout as model calls; never shown to the model."""
         start = time.perf_counter()
@@ -446,8 +467,8 @@ class AgentSession:
             response = await self._llm.messages.create(
                 model=self.model,
                 max_tokens=MAX_TOKENS,
-                system=SYSTEM_PROMPT,
-                tools=self.tools,
+                system=self._cached_system,
+                tools=self._cached_tools,
                 messages=messages,
             )
             latency_ms = round((time.perf_counter() - start) * 1000, 2)
@@ -524,6 +545,8 @@ def summary_from_trace(path: Path) -> RunSummary:
                 forced=bool(call.get("forced", False)),
                 decision="refused" if tid in refused else decisions.get(tid, "execute"),
             ))
+        elif ev == "judge_call" and e.get("usage"):
+            s.judge_usage.add(SimpleNamespace(**e["usage"]))
         elif ev == "api_error" and s.turns:
             s.turns[-1].api_error = e["error"]
     return s

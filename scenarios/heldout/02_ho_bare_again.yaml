@@ -1,0 +1,15 @@
+id: ho_bare_again
+description: >
+  The charge commits but its reply is lost. The user's only follow-up is the bare word
+  "again", which does not say whether the first attempt failed or a second charge is wanted.
+  One charge is right; asking the user is acceptable.
+category: retry
+faults:
+  lose_reply: {enabled: true, tools: [charge_card], hang_seconds: 30, times: 1}
+turns:
+  - Please bill customer 248 $35 for the repair.
+  - text: again
+    if_effects_below: 2
+on_ask: "I only want it charged once."
+expect: {table: charges, effects: 1, ask_ok: true}
+requires_fault_hit: true

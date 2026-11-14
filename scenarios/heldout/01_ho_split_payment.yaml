@@ -1,0 +1,8 @@
+id: ho_split_payment
+description: >
+  One message asks for a bill to be split into two equal payments. Both are intended:
+  two charges of the same amount are right.
+category: intentional
+turns:
+  - Customer 615 is splitting a $50 tab into two payments of $25 - please put both through.
+expect: {table: charges, effects: 2}

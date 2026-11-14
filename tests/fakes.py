@@ -32,10 +32,12 @@ class FakeLLM:
     def __init__(self, *responses):
         self.script = list(responses)
         self.seen: list[list] = []
+        self.requests: list[dict] = []  # every other request field (system, tools, ...)
         self.messages = self
 
     async def create(self, **kw):
         self.seen.append(copy.deepcopy(kw["messages"]))
+        self.requests.append({k: copy.deepcopy(v) for k, v in kw.items() if k != "messages"})
         return self.script.pop(0) if self.script else resp(text("Done."))
 
 

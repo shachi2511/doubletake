@@ -80,6 +80,15 @@ def connect() -> sqlite3.Connection:
                created_at TEXT NOT NULL
            )"""
     )
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS refunds (
+               refund_id    TEXT PRIMARY KEY,
+               customer     TEXT NOT NULL,
+               amount_cents INTEGER NOT NULL,
+               reason       TEXT NOT NULL,
+               created_at   TEXT NOT NULL
+           )"""
+    )
     return conn
 
 
@@ -173,29 +182,29 @@ async def charge_card(customer: str, amount: float, note: str = "") -> str:
     structured_output=False,
 )
 async def list_charges(customer: str) -> str:
+    rows = await _list_rows(
+        "SELECT charge_id, customer, amount_cents, created_at, note FROM charges "
+        "WHERE customer = ? ORDER BY created_at DESC, rowid DESC",
+        customer,
+    )
+    return json.dumps({"customer": customer, "charges": rows})
+
+
+async def _list_rows(sql: str, customer: str) -> list[dict]:
+    """Shared read path for the list tools; the lookup_fails and pending faults apply here."""
     hang = take_fault("lookup_fails")
     if hang:
         await asyncio.sleep(float(hang.get("hang_seconds", DEFAULT_HANG_SECONDS)))
-
     conn = connect()
     try:
-        rows = [
-            dict(r)
-            for r in conn.execute(
-                "SELECT charge_id, customer, amount_cents, created_at, note FROM charges "
-                "WHERE customer = ? ORDER BY created_at DESC, rowid DESC",
-                (customer,),
-            ).fetchall()
-        ]
+        rows = [dict(r) for r in conn.execute(sql, (customer,)).fetchall()]
     finally:
         conn.close()
-
     pending = take_fault("pending")
     if pending:
         cutoff = now() - timedelta(seconds=float(pending.get("pending_seconds", DEFAULT_PENDING_SECONDS)))
         rows = [r for r in rows if datetime.fromisoformat(r["created_at"]) <= cutoff]
-
-    return json.dumps({"customer": customer, "charges": rows})
+    return rows
 
 
 @server.tool(
@@ -212,6 +221,38 @@ async def send_email(to: str, subject: str, body: str) -> str:
     )
     await maybe_lose_reply("send_email")
     return json.dumps({"email_id": email_id, "status": "sent", "to": to, "created_at": created_at})
+
+
+@server.tool(
+    description="Refund money to a customer. Amount is in dollars (e.g. 12.00). Reason is stored with the refund.",
+    annotations=ToolAnnotations(read_only_hint=False, idempotent_hint=False),
+    structured_output=False,
+)
+async def issue_refund(customer: str, amount: float, reason: str) -> str:
+    refund_id = "re_" + secrets.token_hex(8)
+    amount_cents = round(amount * 100)
+    created_at = now().isoformat()
+    insert(
+        "INSERT INTO refunds (refund_id, customer, amount_cents, reason, created_at) VALUES (?, ?, ?, ?, ?)",
+        (refund_id, customer, amount_cents, reason, created_at),
+    )
+    await maybe_lose_reply("issue_refund")
+    return json.dumps({"refund_id": refund_id, "status": "succeeded", "customer": customer,
+                       "amount_cents": amount_cents, "reason": reason, "created_at": created_at})
+
+
+@server.tool(
+    description="List a customer's refunds, newest first.",
+    annotations=ToolAnnotations(read_only_hint=True),
+    structured_output=False,
+)
+async def list_refunds(customer: str) -> str:
+    rows = await _list_rows(
+        "SELECT refund_id, customer, amount_cents, reason, created_at FROM refunds "
+        "WHERE customer = ? ORDER BY created_at DESC, rowid DESC",
+        customer,
+    )
+    return json.dumps({"customer": customer, "refunds": rows})
 
 
 if __name__ == "__main__":

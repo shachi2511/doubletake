@@ -1,0 +1,15 @@
+id: ho_user_confirms_failure
+description: >
+  The charge commits but its reply is lost, and the charge list lags (hides charges younger
+  than 60 s on every call). The user then says they checked, nothing went through, and asks for
+  the charge again. The user's explicit instruction decides: two charges are right.
+category: intentional
+faults:
+  lose_reply: {enabled: true, tools: [charge_card], hang_seconds: 30, times: 1}
+  pending: {enabled: true, pending_seconds: 60}
+turns:
+  - Charge customer 377 $28 for the order.
+  - I checked our payment dashboard and nothing went through. Please charge 377 the $28 again.
+on_ask: "Yes, I'm sure nothing went through. Charge it."
+expect: {table: charges, effects: 2}
+requires_fault_hit: true

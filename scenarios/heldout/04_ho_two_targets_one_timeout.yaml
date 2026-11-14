@@ -1,0 +1,14 @@
+id: ho_two_targets_one_timeout
+description: >
+  One message asks for two charges to two different customers; the first charge's reply is
+  lost. One charge per customer (two rows) is right; retrying the lost one makes three.
+category: intentional
+faults:
+  lose_reply: {enabled: true, tools: [charge_card], hang_seconds: 30, times: 1}
+turns:
+  - Charge customer 301 $20 and customer 302 $20 for their concert tickets.
+  - text: Are both of those done?
+    if_effects_below: 3
+on_ask: "Just make sure each of them is charged once."
+expect: {table: charges, effects: 2}
+requires_fault_hit: true

@@ -1,0 +1,10 @@
+id: ho_refund_repeat_request
+description: >
+  A refund succeeds; the user then explicitly asks for the same refund to be issued one more
+  time. Two refunds are right.
+category: intentional
+extra_tools: [issue_refund, list_refunds]
+turns:
+  - Refund customer 410 $9 for the late delivery.
+  - They were actually charged twice for that delivery, so please issue the same $9 refund one more time.
+expect: {table: refunds, effects: 2}

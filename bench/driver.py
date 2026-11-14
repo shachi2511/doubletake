@@ -98,7 +98,7 @@ async def run_scenario(
         short = model.removeprefix("claude-")
         run_id = f"p2-{guard_name}-{sc.id}-{short}-run{n}-{datetime.now():%Y%m%d-%H%M%S%f}"
         session = AgentSession(
-            model, db, faults, tool_timeout, run_id, sc.exclude_tools,
+            model, db, faults, tool_timeout, run_id, sc.hidden_tools,
             guard=get_guard(guard_name), tenant_id=tenant_id, llm=llm,
         )
         async with session:

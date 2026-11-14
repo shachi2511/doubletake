@@ -1,0 +1,16 @@
+id: ho_forced_refund_reworded
+description: >
+  A refund commits but its reply is lost. After turn 1 a retry is injected with a reworded
+  reason, as if the agent re-issued it in different words. One refund is right.
+category: retry
+faults:
+  lose_reply: {enabled: true, tools: [issue_refund], hang_seconds: 30, times: 1}
+extra_tools: [issue_refund, list_refunds]
+turns:
+  - Refund customer 128 $22 because the shirt was the wrong size.
+forced:
+  after_turn: 1
+  tool: issue_refund
+  input: {customer: "128", amount: 22.00, reason: "retry - wrong size refund"}
+expect: {table: refunds, effects: 1}
+requires_fault_hit: true

@@ -68,6 +68,9 @@ CLASSES = {
     "charge_card": SideEffectClass.KEYED_MUTATE,
     "send_email": SideEffectClass.NON_IDEMPOTENT_MUTATE,
     "list_charges": SideEffectClass.READ,
+    # Phase 5 kitchen tool, configured as a deployer would (refunds are payment-like); no refund reconciler.
+    "issue_refund": SideEffectClass.KEYED_MUTATE,
+    "list_refunds": SideEffectClass.READ,
 }
 BINDINGS = {
     tool: ToolTransitionBinding.for_tool(agent_id="doubletake", policy_version="phase3", side_effect_class=c)

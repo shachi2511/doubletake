@@ -1,0 +1,15 @@
+id: ho_refund_lost_reply
+description: >
+  A refund commits but its reply is lost (a tool no guard was hand-configured for). The
+  follow-up only asks whether it went through. One refund is right; asking is acceptable.
+category: retry
+faults:
+  lose_reply: {enabled: true, tools: [issue_refund], hang_seconds: 30, times: 1}
+extra_tools: [issue_refund, list_refunds]
+turns:
+  - Refund customer 733 $18 - the item arrived damaged.
+  - text: Did the refund go through?
+    if_effects_below: 2
+on_ask: "Don't refund twice."
+expect: {table: refunds, effects: 1, ask_ok: true}
+requires_fault_hit: true

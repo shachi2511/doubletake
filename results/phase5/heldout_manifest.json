@@ -1,0 +1,15 @@
+{
+ "created": "2026-11-13T23:10:49",
+ "note": "Recorded before any run that uses these scenarios. They are not edited after held-out results are seen.",
+ "files": {
+  "scenarios/heldout/01_ho_split_payment.yaml": "db521cdce93ada3429e3cafd296ac25e72a40c121b5cfa6d7f90f09902afcd91",
+  "scenarios/heldout/02_ho_bare_again.yaml": "df83675b4c6d81b61dd671053584480fac8d5b81c8af2e761c3fc4fa0c5fcf9c",
+  "scenarios/heldout/03_ho_status_then_new.yaml": "da5dd70d0cc1e858a9f9059b61cf9322039485382982aa37ee8f6a5f4842341f",
+  "scenarios/heldout/04_ho_two_targets_one_timeout.yaml": "fbc277f7e3a7118c81030293fc0a81b304785726712f1e94e48ed438dea3f24d",
+  "scenarios/heldout/05_ho_refund_lost_reply.yaml": "f7f2e5483e1cc3a1e6c99619242e3831dad8bdc766d27a7c9ce0f04a7d8a7333",
+  "scenarios/heldout/06_ho_refund_repeat_request.yaml": "e7109936f98b6c81d2bc93d3944c98d4d18d5a08b20c58c871afa985a00a7cc9",
+  "scenarios/heldout/07_ho_user_confirms_failure.yaml": "98d8ccf80ec28c90545a628ecdc9acc121777928c8eca0e97f4ee085f1de770e",
+  "scenarios/heldout/08_ho_email_hurry.yaml": "15f2160e4af8ef5e3f9b087ecf3283a36e1c2ad5990be6f6ac41e4a3790954eb",
+  "scenarios/heldout/09_ho_forced_refund_reworded.yaml": "6de07286c9cb2e475e999cb93a85a11cc9f128ecad3d6c9c9353e802939ba47b"
+ }
+}

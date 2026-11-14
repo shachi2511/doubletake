@@ -13,6 +13,7 @@ from agent.guards.base import (
     ReturnResult,
     ToolCall,
 )
+from agent.guards.doubletake import DoubleTakeGuard, DoubleTakeRulesGuard
 from agent.guards.exact_hash import ExactHashGuard
 from agent.guards.none import NoneGuard
 from agent.guards.verify_before_retry import VerifyBeforeRetryGuard
@@ -21,6 +22,8 @@ GUARDS: dict[str, type[Guard]] = {
     NoneGuard.name: NoneGuard,
     ExactHashGuard.name: ExactHashGuard,
     VerifyBeforeRetryGuard.name: VerifyBeforeRetryGuard,
+    DoubleTakeGuard.name: DoubleTakeGuard,
+    DoubleTakeRulesGuard.name: DoubleTakeRulesGuard,
 }
 
 # Third-party baselines (requirements-baselines.txt): registered only if installed.

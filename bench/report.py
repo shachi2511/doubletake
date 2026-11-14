@@ -78,7 +78,7 @@ def agg(rs: list[RunResult]) -> dict:
         "asks": sum(r.score.asks for r in rs),
         "invalid": sum(r.score.status == "invalid" for r in rs),
         "error": sum(r.score.status == "error" for r in rs),
-        "tokens": sum(r.summary.usage.total for r in rs),
+        "tokens": sum(r.summary.total_tokens for r in rs),
     }
 
 
@@ -87,6 +87,19 @@ def row(label: str, a: dict, extra: str = "", clean: bool = False) -> str:
     cl = frac(a["clean"], a["valid"]) if clean else "—"
     return (f"| {label} |{extra} **{frac(a['pass'], a['valid'])}** | {cl} | {a['duplicates']} | {a['blocked']} "
             f"| {a['asks']} | {a['interventions']} | {inv} | {a['tokens']:,} |")
+
+
+def token_rows(label: str, rs: list[RunResult]) -> str:
+    u = [r.summary.usage for r in rs]
+    j = [r.summary.judge_usage for r in rs]
+    return (f"| {label} | {sum(x.input_tokens for x in u):,} | {sum(x.output_tokens for x in u):,} "
+            f"| {sum(x.cache_creation_input_tokens for x in u):,} | {sum(x.cache_read_input_tokens for x in u):,} "
+            f"| {sum(x.input_tokens + x.cache_creation_input_tokens + x.cache_read_input_tokens for x in j):,} "
+            f"| {sum(x.output_tokens for x in j):,} | {sum(r.summary.total_tokens for r in rs):,} |")
+
+
+TOKEN_HEAD = ["| | agent input (uncached) | agent output | cache write | cache read | judge input | judge output | total |",
+              "|---|---|---|---|---|---|---|---|"]
 
 
 def call_seq(r: RunResult) -> str:
@@ -105,7 +118,7 @@ def call_seq(r: RunResult) -> str:
 
 def report(results: list[RunResult], scenarios: list[Scenario], models: list[str], guard: str) -> str:
     by = lambda sc, m: [r for r in results if r.scenario.id == sc.id and r.model == m]  # noqa: E731
-    total_tokens = sum(r.summary.usage.total for r in results)
+    total_tokens = sum(r.summary.total_tokens for r in results)
     runs_per = sorted({len(by(sc, m)) for sc in scenarios for m in models} - {0})
     md = [
         f"# DoubleTake Phase 2 — guard `{guard}`",
@@ -139,6 +152,13 @@ def report(results: list[RunResult], scenarios: list[Scenario], models: list[str
         md.append(f"| `{m}` | {frac(ar['pass'], ar['valid'])} | {frac(ai['pass'], ai['valid'])} "
                   f"| {frac(ai['clean'], ai['valid'])} | **{frac(a['pass'], a['valid'])}** | {a['duplicates']} "
                   f"| {a['blocked']} | {a['asks']} | {a['interventions']} | {inv} | {a['tokens']:,} |")
+
+    md += ["", "## Tokens", "",
+           "Agent = the model under test; judge = guard-side LLM calls (always claude-haiku-5-5). "
+           "Totals include both.", "", *TOKEN_HEAD]
+    for m in models:
+        md.append(token_rows(f"`{m}`", [r for r in results if r.model == m]))
+    md.append(token_rows("**all**", results))
 
     for m in models:
         md += ["", f"## `{m}`", "",
@@ -189,7 +209,7 @@ def report(results: list[RunResult], scenarios: list[Scenario], models: list[str
         s = r.score
         md.append(f"| {r.scenario.id} | `{r.model}` | {r.n} | {s.status} | {s.effects}/{s.expected} "
                   f"| {'yes' if s.fault_hit else 'no'} | {s.model_asks}+{s.guard_asks} | {s.interventions} | {call_seq(r)} "
-                  f"| {r.summary.usage.total:,} | `{rel(r.summary.trace_path)}` |")
+                  f"| {r.summary.total_tokens:,} | `{rel(r.summary.trace_path)}` |")
 
     md += ["", "## Final replies", "",
            "The last assistant text after every user message (and after every forced tool call), verbatim.", ""]

@@ -70,7 +70,7 @@ async def test_lookup_refuses_excluded_and_mutating_tools():
 async def test_lookup_goes_through_the_run_mcp_client_and_is_logged(offline, tmp_path):
     db = tmp_path / "s.db"
     async with AgentSession("fake", db, tmp_path / "none.json", llm=FakeLLM()) as s:
-        assert s.guard_ctx.read_only_tools == {"list_charges"}  # from the server's annotations
+        assert s.guard_ctx.read_only_tools == {"list_charges", "list_refunds"}  # from the server's annotations
         out = await s.guard_ctx.lookup("list_charges", {"customer": "881"})
         assert out.status == "succeeded" and json.loads(out.text)["charges"] == []
         with pytest.raises(LookupRefused):

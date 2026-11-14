@@ -31,8 +31,12 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 ROOT = Path(__file__).resolve().parent.parent
 SCENARIO_DIR = ROOT / "scenarios"
+HELDOUT_DIR = SCENARIO_DIR / "heldout"
 
-EFFECT_TOOLS = {"charges": "charge_card", "emails": "send_email"}
+EFFECT_TOOLS = {"charges": "charge_card", "emails": "send_email", "refunds": "issue_refund"}
+# Kitchen tools added in Phase 5. Hidden unless a scenario lists them in extra_tools, so the
+# Phase 2-4 scenarios see exactly the tools they always saw.
+OPT_IN_TOOLS = ("issue_refund", "list_refunds")
 
 
 class Strict(BaseModel):
@@ -52,7 +56,7 @@ class Forced(Strict):
 
 
 class Expect(Strict):
-    table: Literal["charges", "emails"]
+    table: Literal["charges", "emails", "refunds"]
     effects: int = Field(ge=0)
     ask_ok: bool = False
 
@@ -63,6 +67,7 @@ class Scenario(Strict):
     category: Literal["retry", "intentional"]
     faults: dict = Field(default_factory=dict)
     exclude_tools: tuple[str, ...] = ()
+    extra_tools: tuple[str, ...] = ()  # opt-in kitchen tools this scenario may use
     turns: tuple[Turn, ...] = Field(min_length=1)
     forced: Forced | None = None
     on_ask: str | None = None
@@ -82,10 +87,20 @@ class Scenario(Strict):
             raise ValueError("ask_ok only applies to retry cases")
         if self.requires_fault_hit and not self.lose_reply_tools:
             raise ValueError("requires_fault_hit needs an enabled lose_reply fault")
+        bad = set(self.extra_tools) - set(OPT_IN_TOOLS)
+        if bad:
+            raise ValueError(f"extra_tools may only name opt-in tools {OPT_IN_TOOLS}: {sorted(bad)}")
+        if self.effect_tool in OPT_IN_TOOLS and self.effect_tool not in self.extra_tools:
+            raise ValueError(f"expect.table {self.expect.table} needs {self.effect_tool} in extra_tools")
         unknown = set(self.faults) - {"lose_reply", "pending", "lookup_fails"}
         if unknown:
             raise ValueError(f"unknown fault(s): {sorted(unknown)}")
         return self
+
+    @property
+    def hidden_tools(self) -> tuple[str, ...]:
+        """Tools the model does not get: explicit exclusions plus opt-in tools not requested."""
+        return tuple(dict.fromkeys(self.exclude_tools + tuple(t for t in OPT_IN_TOOLS if t not in self.extra_tools)))
 
     @property
     def effect_tool(self) -> str:
@@ -104,9 +119,15 @@ def load_scenario(path: Path) -> Scenario:
     return sc
 
 
-def load_scenarios(directory: Path = SCENARIO_DIR, ids: list[str] | None = None) -> list[Scenario]:
-    """All scenarios, in file-name order (files are numbered), optionally filtered by id."""
-    found = [load_scenario(p) for p in sorted(Path(directory).glob("*.yaml"))]
+def load_scenarios(directory: Path = SCENARIO_DIR, ids: list[str] | None = None,
+                   include_heldout: bool = False) -> list[Scenario]:
+    """Scenarios in file-name order (files are numbered), optionally filtered by id.
+
+    The default is the 12 main scenarios; include_heldout=True appends scenarios/heldout/."""
+    paths = sorted(Path(directory).glob("*.yaml"))
+    if include_heldout:
+        paths += sorted(HELDOUT_DIR.glob("*.yaml"))
+    found = [load_scenario(p) for p in paths]
     dupes = {s.id for s in found if sum(t.id == s.id for t in found) > 1}
     if dupes:
         raise ValueError(f"duplicate scenario id(s): {sorted(dupes)}")

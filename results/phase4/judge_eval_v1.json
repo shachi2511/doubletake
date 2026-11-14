@@ -1,0 +1,1062 @@
+{
+ "label": "v1",
+ "prompt_sha": "c26604bed143",
+ "judge_system": "You check whether a user is asking an AI agent to perform an action again, or is referring to an action that was already requested. You see only what the user wrote and a list of the actions the agent has already performed or attempted, each with its outcome. You do not see the agent's own words; only the user's words decide.\n\nReturn JSON with three fields:\n\n\"verdict\":\n- \"new\" - the latest user message explicitly asks for an additional action of this kind: another one, doing it again, resending, or a new, separate order or item.\n- \"same_request\" - the latest user message refers to an action already requested: asking whether it happened, asking to make sure it happened, asking for its status, or asking to hurry. Wanting confirmation that something happened is not a request to do it again.\n- \"unsure\" - the user's words do not settle it.\nIf no earlier action of this kind is listed, the verdict is \"new\" when the latest message asks for the action.\n\n\"count\": how many actions of exactly this kind (the same target) the latest user message itself asks the agent to perform now. Usually 1. Use a larger number only when the message asks for several separate ones. Use 0 for \"same_request\".\n\n\"evidence\": a short quote copied word for word from one of the user messages that supports the verdict.\n",
+ "model": "claude-haiku-5-5",
+ "date": "2026-11-13T22:56:26",
+ "results": [
+  {
+   "id": "s01",
+   "raw": {
+    "verdict": "same_request",
+    "count": 0,
+    "evidence": "Did it go through?"
+   },
+   "effective": "same_request",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 803,
+    "output_tokens": 31,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "s02",
+   "raw": {
+    "verdict": "same_request",
+    "count": 0,
+    "evidence": "Is it done?"
+   },
+   "effective": "same_request",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 789,
+    "output_tokens": 30,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "s03",
+   "raw": {
+    "verdict": "same_request",
+    "count": 0,
+    "evidence": "Please make sure he gets it."
+   },
+   "effective": "same_request",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 835,
+    "output_tokens": 34,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "s04",
+   "raw": {
+    "verdict": "same_request",
+    "count": 0,
+    "evidence": "Hurry, the customer is waiting at the counter."
+   },
+   "effective": "same_request",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 818,
+    "output_tokens": 41,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "s05",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "That timed out - try again."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 802,
+    "output_tokens": 30,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "s06",
+   "raw": {
+    "verdict": "same_request",
+    "count": 0,
+    "evidence": "Any luck? I need to know she got it."
+   },
+   "effective": "same_request",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 831,
+    "output_tokens": 37,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "s07",
+   "raw": {
+    "verdict": "same_request",
+    "count": 0,
+    "evidence": "Can you confirm that's charged?"
+   },
+   "effective": "same_request",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 800,
+    "output_tokens": 36,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "s08",
+   "raw": {
+    "verdict": "same_request",
+    "count": 0,
+    "evidence": "It still isn't showing on my side. Please get it through."
+   },
+   "effective": "same_request",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 806,
+    "output_tokens": 41,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "s09",
+   "raw": {
+    "verdict": "same_request",
+    "count": 0,
+    "evidence": "Ok, and just double-check it actually went out."
+   },
+   "effective": "same_request",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 832,
+    "output_tokens": 39,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "s10",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "Please retry it."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 802,
+    "output_tokens": 28,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "s11",
+   "raw": {
+    "verdict": "same_request",
+    "count": 0,
+    "evidence": "Still waiting - is it through?"
+   },
+   "effective": "same_request",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 808,
+    "output_tokens": 35,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "s12",
+   "raw": {
+    "verdict": "same_request",
+    "count": 0,
+    "evidence": "Make sure Tom receives that reminder, it's important."
+   },
+   "effective": "same_request",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 833,
+    "output_tokens": 42,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "n01",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "Charge them another $5, they took a second one."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 803,
+    "output_tokens": 36,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "n02",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "She deleted it, send it again."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 820,
+    "output_tokens": 32,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "n03",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "One more for table 4."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 798,
+    "output_tokens": 29,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "n04",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "New order: same as before."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 794,
+    "output_tokens": 29,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "n05",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "Send the same update to team@co.test again, a few people missed it."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 820,
+    "output_tokens": 42,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "n06",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "Now charge 909 another $25 for the second ticket."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 813,
+    "output_tokens": 40,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "n07",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "Same again for customer 18 please."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 800,
+    "output_tokens": 33,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "n08",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "charge another $12 for tomorrow's parking"
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 815,
+    "output_tokens": 38,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "n09",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "Please send a fresh password reset email to kim@site.test."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 825,
+    "output_tokens": 41,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "n10",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "Do it again for a second guest."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 793,
+    "output_tokens": 32,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "c01",
+   "raw": {
+    "verdict": "new",
+    "count": 3,
+    "evidence": "Charge customer 410 three separate charges of $10."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 760,
+    "output_tokens": 39,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "c02",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "Customer 77 wants to split the $50 bill into two payments of $25."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 767,
+    "output_tokens": 46,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "c03",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "Charge customer 290 $20."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 754,
+    "output_tokens": 33,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "c04",
+   "raw": {
+    "verdict": "new",
+    "count": 2,
+    "evidence": "Send the agenda to amy@corp.test with subject 'Agenda', and send a separate copy to bob@corp.test."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 788,
+    "output_tokens": 62,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "c05",
+   "raw": {
+    "verdict": "new",
+    "count": 4,
+    "evidence": "Charge customer 33 $8 for each of their four kids' lunches, as separate charges."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 772,
+    "output_tokens": 51,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "u01",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "do it again?"
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 787,
+    "output_tokens": 27,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "u02",
+   "raw": {
+    "verdict": "unsure",
+    "count": 0,
+    "evidence": "Hmm, and the other one?"
+   },
+   "effective": "unsure",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 793,
+    "output_tokens": 35,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "u03",
+   "raw": {
+    "verdict": "unsure",
+    "count": 1,
+    "evidence": "What about Ellen?"
+   },
+   "effective": "unsure",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 817,
+    "output_tokens": 32,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "u04",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "again"
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 790,
+    "output_tokens": 24,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "h01",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "Give it another go."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 803,
+    "output_tokens": 28,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "h02",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "Now a second bag, also $22."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 798,
+    "output_tokens": 33,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "h03",
+   "raw": {
+    "verdict": "same_request",
+    "count": 0,
+    "evidence": "Is that sorted yet?"
+   },
+   "effective": "same_request",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 809,
+    "output_tokens": 34,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "h04",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "The chair wants a second copy sent to board@org.test."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 812,
+    "output_tokens": 40,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "h05",
+   "raw": {
+    "verdict": "new",
+    "count": 2,
+    "evidence": "Charge customer 260 $15 twice - once for each ticket."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 764,
+    "output_tokens": 43,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "h06",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "Charge customer 61 $30 and customer 62 $30."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 763,
+    "output_tokens": 42,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "h07",
+   "raw": {
+    "verdict": "same_request",
+    "count": 0,
+    "evidence": "same?"
+   },
+   "effective": "same_request",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 783,
+    "output_tokens": 27,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  },
+  {
+   "id": "h08",
+   "raw": {
+    "verdict": "new",
+    "count": 1,
+    "evidence": "Please push it through again."
+   },
+   "effective": "new",
+   "evidence_ok": true,
+   "usage": {
+    "cache_creation": {
+     "ephemeral_1h_input_tokens": 0,
+     "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 807,
+    "output_tokens": 29,
+    "output_tokens_details": {
+     "thinking_tokens": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+   },
+   "error": null
+  }
+ ]
+}

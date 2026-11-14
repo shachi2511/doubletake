@@ -144,6 +144,39 @@ Guards can call `ctx.lookup(tool, args)` for read-only tools the model also has.
 
 Reports also count *interventions* (non-Execute decisions on the effect tool) and *clean passes* (intentional runs that passed with no intervention). Wiring and fairness notes are in `results/phase3/notes.md`.
 
+## Phase 4: the DoubleTake guard (intent judge)
+
+`agent/guards/doubletake.py`. For every call to a side-effecting tool, the guard decides whether the user asked for it or whether it is a retry.
+
+- **Effect ledger, per (tenant, run).** Each effect is recorded with its user turn, a *target* and an outcome.
+  - Targets: `charge_card` uses customer + amount; `send_email` uses to + subject. Free text such as `note` and `body` is ignored, so rewording does not make a new effect.
+  - Outcomes: `confirmed`, `unresolved` (a timeout or error that may have committed), or `failed` (the server rejected the arguments).
+- **Allowance per user turn.** The first effect call for a target in a turn asks the judge how many such effects that message requests. Calls beyond the allowance are retries.
+- **Intent judge.** One `claude-haiku-5-5` call with a strict JSON schema at low effort, returning `{"verdict": "new" | "same_request" | "unsure", "count", "evidence"}`.
+  - It sees only the user's messages and a plain list of earlier effects with their outcomes.
+  - An evidence quote that is not found word for word in a user message is treated as `unsure`.
+- **Decisions:**
+  - Within the allowance → execute.
+  - Retry of a confirmed effect → return the original result.
+  - Retry of an unresolved effect → check with the read tool. Found → return it. Not found or no read tool → block, because lookups can lag.
+  - `unsure` about an earlier matching effect → ask the user.
+- **Messages.** Every guard message starts with `DoubleTake:` and says whether the effect is done, its status is unknown, or it was not done. The service's timeout text is never replayed.
+- **`doubletake_rules`** is the ablation with no judge: the allowance is always 1 and every new user turn counts as new.
+
+```bash
+.venv/bin/python -m bench.judge_eval --label v2          # judge alone, 39 hand-written cases -> results/phase4/judge_eval.md
+.venv/bin/python -m bench.run --guard doubletake --models claude-haiku-5-5 --runs 2 --results-dir results/phase4
+.venv/bin/python -m bench.compare --out results/phase4/compare.md --title "Phase 4 comparison"
+```
+
+**Cost controls**
+- `agent/loop.py` sets prompt-cache breakpoints on the system prompt and the last tool definition. The 641-token prefix is above the 512-token minimum, so it is cached.
+- Judge tokens are logged as `judge_call` events and kept as `judge_usage`, separate from the agent's tokens. They are included in every run total and report.
+
+**Judge prompt history**
+- v1 missed "try again" after a failure (it answered `new`) and two count cases.
+- v2 is one general revision. Both versions are scored in `results/phase4/judge_eval.md`, on the main set and on a held-out set written before v2 was run.
+
 ### Next phases
 
 `dispatch_tool_call()` in `agent/loop.py` is the single place side effects happen; later phases add a guard in front of it.

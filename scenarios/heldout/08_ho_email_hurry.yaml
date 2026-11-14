@@ -1,0 +1,14 @@
+id: ho_email_hurry
+description: >
+  An unambiguous email commits but its reply is lost; no tool can read emails back. The
+  follow-up only urges speed. One email is right; asking is acceptable.
+category: retry
+faults:
+  lose_reply: {enabled: true, tools: [send_email], hang_seconds: 30, times: 1}
+turns:
+  - 'Email omar@example.org with the subject "Venue change" and the body "Hi Omar, tonight we meet in room 4B."'
+  - text: Hurry please, he needs it before the meeting.
+    if_effects_below: 2
+on_ask: "Only send it once."
+expect: {table: emails, effects: 1, ask_ok: true}
+requires_fault_hit: true
