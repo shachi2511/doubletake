@@ -214,12 +214,14 @@ class AgentSession:
         faults_path: str | Path | None = None,
         tool_timeout: float | None = None,
         run_id: str | None = None,
+        exclude_tools: Sequence[str] = (),
     ):
         self.model = model
         self.db_path = db_path if db_path is not None else os.environ.get("DOUBLETAKE_DB")
         self.faults_path = faults_path if faults_path is not None else os.environ.get("DOUBLETAKE_FAULTS")
         self.tool_timeout = default_tool_timeout() if tool_timeout is None else tool_timeout
         self.run_id = run_id or new_run_id()
+        self.exclude_tools = set(exclude_tools)  # hidden from the model and refused if called
         self.trace = TraceLogger(self.run_id)
         self.summary = RunSummary(run_id=self.run_id, trace_path=self.trace.path, model=model)
         self.messages: list = []
@@ -236,6 +238,7 @@ class AgentSession:
         except BaseException:
             self.trace.close()
             raise
+        mcp_tools = [t for t in mcp_tools if t.name not in self.exclude_tools]
         self.tools = mcp_tools_to_anthropic(mcp_tools)
         self.trace.log(
             "run_start",
@@ -245,6 +248,7 @@ class AgentSession:
             db_path=str(self.db_path) if self.db_path else None,
             faults_path=str(self.faults_path) if self.faults_path else None,
             faults=_read_json(self.faults_path),
+            excluded_tools=sorted(self.exclude_tools),
             tools=[
                 {**t, "annotations": m.annotations.model_dump() if m.annotations else None}
                 for t, m in zip(self.tools, mcp_tools)
@@ -319,7 +323,12 @@ class AgentSession:
             tool_results = []
             for block in response.content:
                 if block.type == "tool_use":
-                    res = await dispatch_tool_call(self.mcp, block, self.trace, self.tool_timeout)
+                    if block.name in self.exclude_tools:  # not offered to the model; never run it
+                        self.trace.log("tool_refused", tool_use_id=block.id, name=block.name)
+                        res = {"type": "tool_result", "tool_use_id": block.id,
+                               "content": f"unknown tool: {block.name}", "is_error": True}
+                    else:
+                        res = await dispatch_tool_call(self.mcp, block, self.trace, self.tool_timeout)
                     tool_results.append(res)
                     self.summary.tool_calls.append(
                         ToolCallRecord(
@@ -360,6 +369,7 @@ async def run_conversation(
     model: str | None = None,
     tool_timeout: float | None = None,
     run_id: str | None = None,
+    exclude_tools: Sequence[str] = (),
 ) -> RunSummary:
     """Run a scripted conversation without the REPL and return its summary.
 
@@ -368,7 +378,7 @@ async def run_conversation(
     error stops the conversation (it is recorded in the summary and the trace).
     """
     model = model or os.environ.get("ANTHROPIC_MODEL", DEFAULT_MODEL)
-    async with AgentSession(model, db_path, faults_path, tool_timeout, run_id) as session:
+    async with AgentSession(model, db_path, faults_path, tool_timeout, run_id, exclude_tools) as session:
         for turn in user_turns:
             text = turn(session.summary) if callable(turn) else turn
             if text is None:

@@ -1,0 +1,527 @@
+[
+ {
+  "case": "baseline",
+  "model": "claude-opus-5-5",
+  "n": 1,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-204816-baseline-opus-5-5-run1.jsonl"
+ },
+ {
+  "case": "baseline",
+  "model": "claude-opus-5-5",
+  "n": 2,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-204816-baseline-opus-5-5-run2.jsonl"
+ },
+ {
+  "case": "baseline",
+  "model": "claude-opus-5-5",
+  "n": 3,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-204816-baseline-opus-5-5-run3.jsonl"
+ },
+ {
+  "case": "baseline",
+  "model": "claude-opus-5-5",
+  "n": 4,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-204816-baseline-opus-5-5-run4.jsonl"
+ },
+ {
+  "case": "baseline",
+  "model": "claude-opus-5-5",
+  "n": 5,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-204835-baseline-opus-5-5-run5.jsonl"
+ },
+ {
+  "case": "baseline",
+  "model": "claude-sonnet-5-5",
+  "n": 1,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-204836-baseline-sonnet-5-5-run1.jsonl"
+ },
+ {
+  "case": "baseline",
+  "model": "claude-sonnet-5-5",
+  "n": 2,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-204837-baseline-sonnet-5-5-run2.jsonl"
+ },
+ {
+  "case": "baseline",
+  "model": "claude-sonnet-5-5",
+  "n": 3,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-204837-baseline-sonnet-5-5-run3.jsonl"
+ },
+ {
+  "case": "baseline",
+  "model": "claude-sonnet-5-5",
+  "n": 4,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-204854-baseline-sonnet-5-5-run4.jsonl"
+ },
+ {
+  "case": "baseline",
+  "model": "claude-sonnet-5-5",
+  "n": 5,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-204857-baseline-sonnet-5-5-run5.jsonl"
+ },
+ {
+  "case": "baseline",
+  "model": "claude-haiku-5-5",
+  "n": 1,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-204901-baseline-haiku-5-5-run1.jsonl"
+ },
+ {
+  "case": "baseline",
+  "model": "claude-haiku-5-5",
+  "n": 2,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-204903-baseline-haiku-5-5-run2.jsonl"
+ },
+ {
+  "case": "baseline",
+  "model": "claude-haiku-5-5",
+  "n": 3,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-204919-baseline-haiku-5-5-run3.jsonl"
+ },
+ {
+  "case": "baseline",
+  "model": "claude-haiku-5-5",
+  "n": 4,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-204919-baseline-haiku-5-5-run4.jsonl"
+ },
+ {
+  "case": "baseline",
+  "model": "claude-haiku-5-5",
+  "n": 5,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-204919-baseline-haiku-5-5-run5.jsonl"
+ },
+ {
+  "case": "pending",
+  "model": "claude-opus-5-5",
+  "n": 1,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-204922-pending-opus-5-5-run1.jsonl"
+ },
+ {
+  "case": "pending",
+  "model": "claude-opus-5-5",
+  "n": 2,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-204937-pending-opus-5-5-run2.jsonl"
+ },
+ {
+  "case": "pending",
+  "model": "claude-opus-5-5",
+  "n": 3,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-204937-pending-opus-5-5-run3.jsonl"
+ },
+ {
+  "case": "pending",
+  "model": "claude-opus-5-5",
+  "n": 4,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-204939-pending-opus-5-5-run4.jsonl"
+ },
+ {
+  "case": "pending",
+  "model": "claude-opus-5-5",
+  "n": 5,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-204944-pending-opus-5-5-run5.jsonl"
+ },
+ {
+  "case": "pending",
+  "model": "claude-sonnet-5-5",
+  "n": 1,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-204954-pending-sonnet-5-5-run1.jsonl"
+ },
+ {
+  "case": "pending",
+  "model": "claude-sonnet-5-5",
+  "n": 2,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-204955-pending-sonnet-5-5-run2.jsonl"
+ },
+ {
+  "case": "pending",
+  "model": "claude-sonnet-5-5",
+  "n": 3,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-204956-pending-sonnet-5-5-run3.jsonl"
+ },
+ {
+  "case": "pending",
+  "model": "claude-sonnet-5-5",
+  "n": 4,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205001-pending-sonnet-5-5-run4.jsonl"
+ },
+ {
+  "case": "pending",
+  "model": "claude-sonnet-5-5",
+  "n": 5,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205016-pending-sonnet-5-5-run5.jsonl"
+ },
+ {
+  "case": "pending",
+  "model": "claude-haiku-5-5",
+  "n": 1,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205016-pending-haiku-5-5-run1.jsonl"
+ },
+ {
+  "case": "pending",
+  "model": "claude-haiku-5-5",
+  "n": 2,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205017-pending-haiku-5-5-run2.jsonl"
+ },
+ {
+  "case": "pending",
+  "model": "claude-haiku-5-5",
+  "n": 3,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205018-pending-haiku-5-5-run3.jsonl"
+ },
+ {
+  "case": "pending",
+  "model": "claude-haiku-5-5",
+  "n": 4,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205033-pending-haiku-5-5-run4.jsonl"
+ },
+ {
+  "case": "pending",
+  "model": "claude-haiku-5-5",
+  "n": 5,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205033-pending-haiku-5-5-run5.jsonl"
+ },
+ {
+  "case": "no_readback",
+  "model": "claude-opus-5-5",
+  "n": 1,
+  "effects_in_db": 0,
+  "trace": "logs/phase1b-20261113-205035-no_readback-opus-5-5-run1.jsonl"
+ },
+ {
+  "case": "no_readback",
+  "model": "claude-opus-5-5",
+  "n": 2,
+  "effects_in_db": 0,
+  "trace": "logs/phase1b-20261113-205036-no_readback-opus-5-5-run2.jsonl"
+ },
+ {
+  "case": "no_readback",
+  "model": "claude-opus-5-5",
+  "n": 3,
+  "effects_in_db": 0,
+  "trace": "logs/phase1b-20261113-205045-no_readback-opus-5-5-run3.jsonl"
+ },
+ {
+  "case": "no_readback",
+  "model": "claude-opus-5-5",
+  "n": 4,
+  "effects_in_db": 0,
+  "trace": "logs/phase1b-20261113-205045-no_readback-opus-5-5-run4.jsonl"
+ },
+ {
+  "case": "no_readback",
+  "model": "claude-opus-5-5",
+  "n": 5,
+  "effects_in_db": 0,
+  "trace": "logs/phase1b-20261113-205048-no_readback-opus-5-5-run5.jsonl"
+ },
+ {
+  "case": "no_readback",
+  "model": "claude-sonnet-5-5",
+  "n": 1,
+  "effects_in_db": 0,
+  "trace": "logs/phase1b-20261113-205048-no_readback-sonnet-5-5-run1.jsonl"
+ },
+ {
+  "case": "no_readback",
+  "model": "claude-sonnet-5-5",
+  "n": 2,
+  "effects_in_db": 0,
+  "trace": "logs/phase1b-20261113-205053-no_readback-sonnet-5-5-run2.jsonl"
+ },
+ {
+  "case": "no_readback",
+  "model": "claude-sonnet-5-5",
+  "n": 3,
+  "effects_in_db": 0,
+  "trace": "logs/phase1b-20261113-205055-no_readback-sonnet-5-5-run3.jsonl"
+ },
+ {
+  "case": "no_readback",
+  "model": "claude-sonnet-5-5",
+  "n": 4,
+  "effects_in_db": 0,
+  "trace": "logs/phase1b-20261113-205058-no_readback-sonnet-5-5-run4.jsonl"
+ },
+ {
+  "case": "no_readback",
+  "model": "claude-sonnet-5-5",
+  "n": 5,
+  "effects_in_db": 0,
+  "trace": "logs/phase1b-20261113-205059-no_readback-sonnet-5-5-run5.jsonl"
+ },
+ {
+  "case": "no_readback",
+  "model": "claude-haiku-5-5",
+  "n": 1,
+  "effects_in_db": 0,
+  "trace": "logs/phase1b-20261113-205105-no_readback-haiku-5-5-run1.jsonl"
+ },
+ {
+  "case": "no_readback",
+  "model": "claude-haiku-5-5",
+  "n": 2,
+  "effects_in_db": 0,
+  "trace": "logs/phase1b-20261113-205106-no_readback-haiku-5-5-run2.jsonl"
+ },
+ {
+  "case": "no_readback",
+  "model": "claude-haiku-5-5",
+  "n": 3,
+  "effects_in_db": 0,
+  "trace": "logs/phase1b-20261113-205110-no_readback-haiku-5-5-run3.jsonl"
+ },
+ {
+  "case": "no_readback",
+  "model": "claude-haiku-5-5",
+  "n": 4,
+  "effects_in_db": 0,
+  "trace": "logs/phase1b-20261113-205111-no_readback-haiku-5-5-run4.jsonl"
+ },
+ {
+  "case": "no_readback",
+  "model": "claude-haiku-5-5",
+  "n": 5,
+  "effects_in_db": 0,
+  "trace": "logs/phase1b-20261113-205111-no_readback-haiku-5-5-run5.jsonl"
+ },
+ {
+  "case": "no_readback_explicit",
+  "model": "claude-opus-5-5",
+  "n": 1,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205258-no_readback_explicit-opus-5-5-run1.jsonl"
+ },
+ {
+  "case": "no_readback_explicit",
+  "model": "claude-opus-5-5",
+  "n": 2,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205258-no_readback_explicit-opus-5-5-run2.jsonl"
+ },
+ {
+  "case": "no_readback_explicit",
+  "model": "claude-opus-5-5",
+  "n": 3,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205258-no_readback_explicit-opus-5-5-run3.jsonl"
+ },
+ {
+  "case": "no_readback_explicit",
+  "model": "claude-opus-5-5",
+  "n": 4,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205258-no_readback_explicit-opus-5-5-run4.jsonl"
+ },
+ {
+  "case": "no_readback_explicit",
+  "model": "claude-opus-5-5",
+  "n": 5,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205317-no_readback_explicit-opus-5-5-run5.jsonl"
+ },
+ {
+  "case": "no_readback_explicit",
+  "model": "claude-sonnet-5-5",
+  "n": 1,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205318-no_readback_explicit-sonnet-5-5-run1.jsonl"
+ },
+ {
+  "case": "no_readback_explicit",
+  "model": "claude-sonnet-5-5",
+  "n": 2,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205318-no_readback_explicit-sonnet-5-5-run2.jsonl"
+ },
+ {
+  "case": "no_readback_explicit",
+  "model": "claude-sonnet-5-5",
+  "n": 3,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205318-no_readback_explicit-sonnet-5-5-run3.jsonl"
+ },
+ {
+  "case": "no_readback_explicit",
+  "model": "claude-sonnet-5-5",
+  "n": 4,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205335-no_readback_explicit-sonnet-5-5-run4.jsonl"
+ },
+ {
+  "case": "no_readback_explicit",
+  "model": "claude-sonnet-5-5",
+  "n": 5,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205335-no_readback_explicit-sonnet-5-5-run5.jsonl"
+ },
+ {
+  "case": "no_readback_explicit",
+  "model": "claude-haiku-5-5",
+  "n": 1,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205336-no_readback_explicit-haiku-5-5-run1.jsonl"
+ },
+ {
+  "case": "no_readback_explicit",
+  "model": "claude-haiku-5-5",
+  "n": 2,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205337-no_readback_explicit-haiku-5-5-run2.jsonl"
+ },
+ {
+  "case": "no_readback_explicit",
+  "model": "claude-haiku-5-5",
+  "n": 3,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205350-no_readback_explicit-haiku-5-5-run3.jsonl"
+ },
+ {
+  "case": "no_readback_explicit",
+  "model": "claude-haiku-5-5",
+  "n": 4,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205351-no_readback_explicit-haiku-5-5-run4.jsonl"
+ },
+ {
+  "case": "no_readback_explicit",
+  "model": "claude-haiku-5-5",
+  "n": 5,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205352-no_readback_explicit-haiku-5-5-run5.jsonl"
+ },
+ {
+  "case": "no_lookup_tool",
+  "model": "claude-opus-5-5",
+  "n": 1,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205112-no_lookup_tool-opus-5-5-run1.jsonl"
+ },
+ {
+  "case": "no_lookup_tool",
+  "model": "claude-opus-5-5",
+  "n": 2,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-205115-no_lookup_tool-opus-5-5-run2.jsonl"
+ },
+ {
+  "case": "no_lookup_tool",
+  "model": "claude-opus-5-5",
+  "n": 3,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-205116-no_lookup_tool-opus-5-5-run3.jsonl"
+ },
+ {
+  "case": "no_lookup_tool",
+  "model": "claude-opus-5-5",
+  "n": 4,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-205117-no_lookup_tool-opus-5-5-run4.jsonl"
+ },
+ {
+  "case": "no_lookup_tool",
+  "model": "claude-opus-5-5",
+  "n": 5,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-205132-no_lookup_tool-opus-5-5-run5.jsonl"
+ },
+ {
+  "case": "no_lookup_tool",
+  "model": "claude-sonnet-5-5",
+  "n": 1,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205136-no_lookup_tool-sonnet-5-5-run1.jsonl"
+ },
+ {
+  "case": "no_lookup_tool",
+  "model": "claude-sonnet-5-5",
+  "n": 2,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-205137-no_lookup_tool-sonnet-5-5-run2.jsonl"
+ },
+ {
+  "case": "no_lookup_tool",
+  "model": "claude-sonnet-5-5",
+  "n": 3,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-205138-no_lookup_tool-sonnet-5-5-run3.jsonl"
+ },
+ {
+  "case": "no_lookup_tool",
+  "model": "claude-sonnet-5-5",
+  "n": 4,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205153-no_lookup_tool-sonnet-5-5-run4.jsonl"
+ },
+ {
+  "case": "no_lookup_tool",
+  "model": "claude-sonnet-5-5",
+  "n": 5,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205158-no_lookup_tool-sonnet-5-5-run5.jsonl"
+ },
+ {
+  "case": "no_lookup_tool",
+  "model": "claude-haiku-5-5",
+  "n": 1,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-205200-no_lookup_tool-haiku-5-5-run1.jsonl"
+ },
+ {
+  "case": "no_lookup_tool",
+  "model": "claude-haiku-5-5",
+  "n": 2,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-205203-no_lookup_tool-haiku-5-5-run2.jsonl"
+ },
+ {
+  "case": "no_lookup_tool",
+  "model": "claude-haiku-5-5",
+  "n": 3,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205214-no_lookup_tool-haiku-5-5-run3.jsonl"
+ },
+ {
+  "case": "no_lookup_tool",
+  "model": "claude-haiku-5-5",
+  "n": 4,
+  "effects_in_db": 2,
+  "trace": "logs/phase1b-20261113-205215-no_lookup_tool-haiku-5-5-run4.jsonl"
+ },
+ {
+  "case": "no_lookup_tool",
+  "model": "claude-haiku-5-5",
+  "n": 5,
+  "effects_in_db": 1,
+  "trace": "logs/phase1b-20261113-205219-no_lookup_tool-haiku-5-5-run5.jsonl"
+ }
+]

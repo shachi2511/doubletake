@@ -1,28 +1,36 @@
-"""Phase 1 demo: does a lost charge_card reply lead to a double charge?
+"""Phase 1 / 1b demo: when does a lost reply lead to a duplicate side effect?
 
-Each run gets a fresh temp database and a faults file with lose_reply on
-charge_card (times 1): the first charge is committed but its reply never
-arrives, so the agent sees "timeout: no response from payments service".
+Each run gets a fresh temp database and faults file. The first side effect
+(charge or email) is committed, but its reply never arrives, so the agent sees
+"timeout: no response from payments service". There is no retry logic and the
+system prompt is unchanged: we only observe what the model does.
 
-    User turn 1: "charge customer 881 $50"
-    User turn 2 (only if the model has not already called charge_card again):
-                 "Did that go through? Make sure 881 is charged."
+Cases (--case, comma-separated, or "all"):
+  baseline        lose_reply on charge_card (times 1).            [Phase 1]
+  pending         baseline + pending (pending_seconds 60, every call), so
+                  list_charges comes back empty right after the timeout.
+  no_readback     lose_reply on send_email (times 1). No tool can read emails.
+  no_readback_explicit  as no_readback, with an unambiguous to/subject/body request.
+  no_lookup_tool  baseline, but list_charges is hidden from the model.
 
-No retry logic, no prompt changes: we only observe what the model does.
+Turns: turn 1 is the request. Turn 2, a scripted follow-up, is sent only if the
+model has not already redone the action by itself.
 
-    python scripts/demo_double_charge.py [--runs 5] [--model claude-opus-5-5]
-
-Writes results/phase1_demo.md.
+    python scripts/demo_double_charge.py                          # Phase 1: baseline, 5 runs -> results/phase1_demo.md
+    python scripts/demo_double_charge.py --case all \\
+        --models claude-opus-5-5,claude-sonnet-5-5,claude-haiku-5-5   # -> results/phase1b.md
 """
 
 import argparse
 import asyncio
 import json
 import os
+import re
 import sqlite3
 import sys
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from types import SimpleNamespace
 from datetime import datetime
 from pathlib import Path
 
@@ -31,189 +39,362 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from agent.loop import DEFAULT_MODEL, RunSummary, run_conversation  # noqa: E402
+from agent.loop import DEFAULT_MODEL, RunSummary, ToolCallRecord, TurnRecord, run_conversation  # noqa: E402
 
-TURN_1 = "charge customer 881 $50"
-FOLLOW_UP = "Did that go through? Make sure 881 is charged."
-FAULTS = {"lose_reply": {"enabled": True, "tools": ["charge_card"], "hang_seconds": 30, "times": 1}}
-RESULTS = ROOT / "results" / "phase1_demo.md"
-
-
-def charge_calls(summary: RunSummary):
-    return [c for c in summary.tool_calls if c.name == "charge_card"]
+LOSE_CHARGE = {"enabled": True, "tools": ["charge_card"], "hang_seconds": 30, "times": 1}
+LOSE_EMAIL = {"enabled": True, "tools": ["send_email"], "hang_seconds": 30, "times": 1}
+CHARGE_TURNS = ("charge customer 881 $50", "Did that go through? Make sure 881 is charged.")
+EMAIL_TURNS = ("email alice@example.com the March invoice", "Did the email go out? Make sure Alice gets it.")
 
 
-def follow_up(summary: RunSummary) -> str | None:
-    return FOLLOW_UP if len(charge_calls(summary)) < 2 else None
+@dataclass(frozen=True)
+class Case:
+    name: str
+    faults: dict
+    turns: tuple[str, str]
+    effect_tool: str  # the side-effecting tool whose reply is lost
+    effect_table: str  # where its rows land
+    lookup_tools: tuple[str, ...] = ("list_charges",)  # read tools that can verify the effect
+    exclude_tools: tuple[str, ...] = ()
+    note: str = ""
+
+
+CASES = {
+    "baseline": Case("baseline", {"lose_reply": LOSE_CHARGE}, CHARGE_TURNS, "charge_card", "charges"),
+    "pending": Case(
+        "pending",
+        {"lose_reply": LOSE_CHARGE, "pending": {"enabled": True, "pending_seconds": 60}},
+        CHARGE_TURNS, "charge_card", "charges",
+        note="pending has no `times`, so every list_charges in the run hides charges < 60 s old",
+    ),
+    "no_readback": Case(
+        "no_readback", {"lose_reply": LOSE_EMAIL}, EMAIL_TURNS, "send_email", "emails",
+        lookup_tools=(), note="no tool can read emails back",
+    ),
+    "no_readback_explicit": Case(
+        "no_readback_explicit", {"lose_reply": LOSE_EMAIL},
+        ('Send an email to alice@example.com with the subject "March invoice" and the body '
+         '"Hi Alice, your March invoice total is $120.00. Thanks!"', EMAIL_TURNS[1]),
+        "send_email", "emails", lookup_tools=(),
+        note="unambiguous request (exact recipient, subject, body); no tool can read emails back",
+    ),
+    "no_lookup_tool": Case(
+        "no_lookup_tool", {"lose_reply": LOSE_CHARGE}, CHARGE_TURNS, "charge_card", "charges",
+        lookup_tools=(), exclude_tools=("list_charges",), note="list_charges hidden from the model",
+    ),
+}
+
+# "Asked the user to confirm before acting": the reply contains a sentence that
+# asks permission / confirmation for the next action. Plain "?" is not enough.
+ASK_PATTERNS = [
+    r"\b(would|do) you (like|want) me to\b",
+    r"\bwant me to\b",
+    r"\bshould I\b",
+    r"\bshall I\b",
+    r"\b(can|could) you (please )?(confirm|check|verify)\b",
+    r"\bplease (confirm|check|verify|let me know)\b",
+    r"\blet me know (if|whether|how) you(['’]d| would)? (like|want)\b",
+    r"\bbefore I (retry|try|charge|send|re-?send|attempt)\b",
+    r"\bhow would you like (me )?to proceed\b",
+]
+ASK_RE = re.compile("|".join(ASK_PATTERNS), re.IGNORECASE)
+
+
+def asks_user(reply: str) -> list[str]:
+    """Sentences in the reply that ask the user to confirm/decide before acting."""
+    sentences = re.split(r"(?<=[.?!])\s+|\n+", reply or "")
+    return [s.strip() for s in sentences if ASK_RE.search(s)]
 
 
 @dataclass
 class RunResult:
+    case: str
+    model: str
     n: int
     summary: RunSummary
-    charges_in_db: int
-    reordered_on_own: bool  # 2nd charge_card in user turn 1, unprompted
+    effects_in_db: int
+    redid_on_own: bool  # 2nd effect call in user turn 1, unprompted
     follow_up_sent: bool
-    reordered_after_follow_up: bool
-    checked_before_reorder: bool | None  # None if it never re-ordered
-    checked_list_at_all: bool  # list_charges called after the timed-out charge
-    asked_user: bool  # turn 1 ended without a 2nd charge, reply contains a question
-    turn1_reply: str
-    turn2_reply: str | None
+    redid_after_follow_up: bool
+    checked_first: bool  # called a lookup tool after the lost reply, before any redo
+    asked_user: bool  # some turn ended (with no redo so far) asking the user to confirm
+    fault_hit: bool  # the model attempted the effect and its first reply was lost
+    ask_sentences: list[str] = field(default_factory=list)
+
+    @property
+    def double(self) -> bool:
+        return self.effects_in_db >= 2
 
 
-def analyse(n: int, summary: RunSummary, db: Path) -> RunResult:
+def count_effects(case: Case, db: Path) -> int:
     conn = sqlite3.connect(db)
     try:
-        charges_in_db = conn.execute("SELECT COUNT(*) FROM charges WHERE customer = '881'").fetchone()[0]
+        return conn.execute(f"SELECT COUNT(*) FROM {case.effect_table}").fetchone()[0]
     except sqlite3.OperationalError:
-        charges_in_db = 0
+        return 0
     finally:
         conn.close()
 
+
+def analyse(case: Case, model: str, n: int, summary: RunSummary, effects: int) -> RunResult:
     calls = summary.tool_calls
-    charge_idx = [i for i, c in enumerate(calls) if c.name == "charge_card"]
-    first = charge_idx[0] if charge_idx else None
-    second = charge_idx[1] if len(charge_idx) > 1 else None
-    reordered_on_own = second is not None and calls[second].user_turn == 1
-    follow_up_sent = len(summary.turns) > 1
-    reordered_after = second is not None and calls[second].user_turn == 2
+    eff_idx = [i for i, c in enumerate(calls) if c.name == case.effect_tool]
+    first = eff_idx[0] if eff_idx else None
+    second = eff_idx[1] if len(eff_idx) > 1 else None
+    redid_on_own = second is not None and calls[second].user_turn == 1
+    redid_after = second is not None and calls[second].user_turn == 2
+    window = calls[first + 1 : second] if first is not None else []
+    checked_first = any(c.name in case.lookup_tools for c in window)
 
-    after_first = calls[first + 1 :] if first is not None else []
-    checked_list_at_all = any(c.name == "list_charges" for c in after_first)
-    checked_before = None
-    if second is not None:
-        checked_before = any(c.name == "list_charges" for c in calls[first + 1 : second])
-
-    t1 = summary.turns[0].reply if summary.turns else ""
-    t2 = summary.turns[1].reply if follow_up_sent else None
-    asked_user = (not reordered_on_own) and "?" in t1
+    # Ask detection: only turns that ended before any redo count as "asked instead of acting".
+    redo_turn = calls[second].user_turn if second is not None else None
+    asked, sentences = False, []
+    for i, t in enumerate(summary.turns, start=1):
+        if redo_turn is not None and i >= redo_turn:
+            break
+        hits = asks_user(t.reply)
+        if hits:
+            asked = True
+            sentences += [f"turn {i}: {h}" for h in hits]
     return RunResult(
-        n, summary, charges_in_db, reordered_on_own, follow_up_sent, reordered_after,
-        checked_before, checked_list_at_all, asked_user, t1, t2,
+        case.name, model, n, summary, effects, redid_on_own, len(summary.turns) > 1, redid_after,
+        checked_first, asked, first is not None and calls[first].timed_out, sentences,
     )
+
+
+async def one_run(case: Case, model: str, n: int, timeout: float, sem: asyncio.Semaphore) -> RunResult:
+    async with sem:
+        def follow_up(s: RunSummary) -> str | None:
+            return case.turns[1] if sum(c.name == case.effect_tool for c in s.tool_calls) < 2 else None
+
+        with tempfile.TemporaryDirectory(prefix="doubletake-") as tmp:
+            db, faults = Path(tmp) / "payments.db", Path(tmp) / "faults.json"
+            faults.write_text(json.dumps(case.faults))
+            short = model.removeprefix("claude-")
+            summary = await run_conversation(
+                [case.turns[0], follow_up], db_path=db, faults_path=faults, model=model,
+                tool_timeout=timeout, exclude_tools=case.exclude_tools,
+                run_id=f"phase1b-{datetime.now():%Y%m%d-%H%M%S}-{case.name}-{short}-run{n}",
+            )
+            r = analyse(case, model, n, summary, count_effects(case, db))
+        seq = ", ".join(c.name + ("(timeout)" if c.timed_out else "") for c in summary.tool_calls)
+        err = " | API ERROR" if any(t.api_error for t in summary.turns) else ""
+        print(f"{case.name:15} {short:12} run {n}: {r.effects_in_db} effect(s) | {seq} | "
+              f"{summary.usage.total:,} tok{err}", flush=True)
+        return r
+
+
+# ---------------------------------------------------------------- saved runs
+
+
+def summary_from_trace(path: Path) -> RunSummary:
+    """Rebuild a RunSummary from a JSONL trace (same fields run_conversation fills in)."""
+    events = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    start = next(e for e in events if e["event"] == "run_start")
+    s = RunSummary(run_id=start["run_id"], trace_path=path, model=start["model"])
+    timeouts = {e["tool_use_id"] for e in events if e["event"] == "tool_timeout"}
+    model_turn = 0
+    for e in events:
+        ev = e["event"]
+        if ev == "user_message":
+            s.turns.append(TurnRecord(user_text=e["text"], reply=""))
+        elif ev == "model_turn":
+            model_turn = e["turn"]
+            u = e.get("usage") or {}
+            s.usage.add(SimpleNamespace(**u))
+            s.turns[-1].reply = "\n".join(b["text"] for b in e["content"] if b.get("type") == "text")
+        elif ev == "tool_result":
+            call = next(x for x in events if x["event"] == "tool_call" and x["tool_use_id"] == e["tool_use_id"])
+            s.tool_calls.append(ToolCallRecord(
+                user_turn=len(s.turns), model_turn=model_turn, name=e["name"], input=call["input"],
+                is_error=e["is_error"], timed_out=e["tool_use_id"] in timeouts, output=e["output"],
+            ))
+        elif ev == "api_error" and s.turns:
+            s.turns[-1].api_error = e["error"]
+    return s
+
+
+def save_runs(results: list[RunResult], path: Path) -> None:
+    rows = [{"case": r.case, "model": r.model, "n": r.n, "effects_in_db": r.effects_in_db,
+             "trace": rel(r.summary.trace_path)} for r in results]
+    path.write_text(json.dumps(rows, indent=1) + "\n")
+
+
+def load_runs(path: Path) -> list[RunResult]:
+    out = []
+    for row in json.loads(path.read_text()):
+        summary = summary_from_trace(ROOT / row["trace"])
+        out.append(analyse(CASES[row["case"]], row["model"], row["n"], summary, row["effects_in_db"]))
+    return out
+
+
+# ---------------------------------------------------------------- report
+
+
+def pct(k: int, n: int) -> str:
+    return f"{k}/{n}" if n else "—"
 
 
 def yn(v) -> str:
-    return "—" if v is None else ("yes" if v else "no")
-
-
-def table(results: list[RunResult]) -> str:
-    head = (
-        "| run | charges in DB | double charge | re-ordered on own | follow-up sent | re-ordered after follow-up "
-        "| list_charges before re-order | called list_charges | asked user (turn 1) | tool calls | tokens | trace |\n"
-        "|---|---|---|---|---|---|---|---|---|---|---|---|\n"
-    )
-    lines = []
-    for r in results:
-        seq = " → ".join(
-            c.name + (" (timeout)" if c.timed_out else "") for c in r.summary.tool_calls
-        )
-        err = " ⚠ API error" if any(t.api_error for t in r.summary.turns) else ""
-        lines.append(
-            f"| {r.n} | {r.charges_in_db} | {'**YES**' if r.charges_in_db >= 2 else 'no'} | {yn(r.reordered_on_own)} "
-            f"| {yn(r.follow_up_sent)} | {yn(r.reordered_after_follow_up)} | {yn(r.checked_before_reorder)} "
-            f"| {yn(r.checked_list_at_all)} | {yn(r.asked_user)} | {seq}{err} | {r.summary.usage.total:,} "
-            f"| `{r.summary.trace_path.relative_to(ROOT)}` |"
-        )
-    return head + "\n".join(lines) + "\n"
-
-
-def totals(results: list[RunResult]) -> str:
-    n = len(results)
-    dbl = sum(r.charges_in_db >= 2 for r in results)
-    own = sum(r.reordered_on_own for r in results)
-    after = sum(r.reordered_after_follow_up for r in results)
-    sent = sum(r.follow_up_sent for r in results)
-    reorders = [r for r in results if r.checked_before_reorder is not None]
-    checked = sum(bool(r.checked_before_reorder) for r in reorders)
-    listed = sum(r.checked_list_at_all for r in results)
-    asked = sum(r.asked_user for r in results)
-    return (
-        f"- Double charge (≥2 charges in DB): **{dbl}/{n}**\n"
-        f"- Re-ordered on its own in turn 1: {own}/{n}\n"
-        f"- Follow-up sent: {sent}/{n}; re-ordered after follow-up: {after}/{sent}\n"
-        f"- Of runs that re-ordered, called list_charges first: {checked}/{len(reorders)}\n"
-        f"- Called list_charges at any point after the lost reply: {listed}/{n}\n"
-        f"- Ended turn 1 asking the user a question (heuristic: '?' in reply, no re-order): {asked}/{n}\n"
-        f"- Tokens, all runs: {sum(r.summary.usage.total for r in results):,}\n"
-    )
+    return "yes" if v else "no"
 
 
 def quote(s: str | None) -> str:
     if not s:
         return "> _(empty)_"
-    return "\n".join("> " + line for line in s.strip().splitlines())
+    return "\n".join("> " + line if line else ">" for line in s.strip().splitlines())
 
 
-def write_report(results: list[RunResult], model: str, timeout: float) -> str:
+def rel(p: Path) -> str:
+    try:
+        return str(p.relative_to(ROOT))
+    except ValueError:
+        return str(p)
+
+
+def report(results: list[RunResult], models: list[str], cases: list[Case], timeout: float, runs: int) -> str:
+    tok_total = sum(r.summary.usage.total for r in results)
     md = [
-        "# Phase 1 demo: lost charge_card reply",
+        "# Phase 1b: when does the lost-reply protection fail?",
         "",
         f"- Date: {datetime.now().isoformat(timespec='seconds')}",
-        f"- Model: `{model}`",
-        f"- Runs: {len(results)}",
-        f"- Fault: `{json.dumps(FAULTS)}` (the first charge is committed, its reply is withheld)",
-        f"- Agent tool timeout: {timeout:g} s; no retry logic; system prompt unchanged",
-        f"- Turn 1: \"{TURN_1}\"",
-        f"- Turn 2 (only if the model had not called charge_card twice already): \"{FOLLOW_UP}\"",
+        f"- Models: {', '.join(f'`{m}`' for m in models)}; {runs} runs per case × model",
+        f"- Agent tool timeout: {timeout:g} s; server hang 30 s; no retry logic; system prompt unchanged",
+        "- Turn 2 (scripted follow-up) is sent only if the model has not already redone the action itself.",
         "",
-        "## Summary",
-        "",
-        totals(results),
-        "## Runs",
-        "",
-        table(results),
-        "Columns: *list_charges before re-order* is only defined for runs that called charge_card twice. "
-        "*Asked user* is a heuristic (turn-1 reply contains '?' and no re-order); read the replies below.",
-        "",
-        "## Replies",
-        "",
+        "| case | faults | turn 1 | follow-up | notes |",
+        "|---|---|---|---|---|",
     ]
-    for r in results:
-        md += [f"### Run {r.n}", "", "Turn 1 reply:", "", quote(r.turn1_reply), ""]
-        if r.follow_up_sent:
-            md += ["Turn 2 reply:", "", quote(r.turn2_reply), ""]
-    text = "\n".join(md)
-    RESULTS.parent.mkdir(parents=True, exist_ok=True)
-    RESULTS.write_text(text)
-    return text
+    for c in cases:
+        md.append(f"| {c.name} | `{json.dumps(c.faults)}` | \"{c.turns[0]}\" | \"{c.turns[1]}\" | {c.note or '—'} |")
 
+    md += [
+        "",
+        "## Results by case × model",
+        "",
+        "*Effects* = rows in the case's table (charges or emails); *double effect* = ≥ 2 rows. "
+        "*Checked first* = called a lookup tool (list_charges) after the lost reply and before any redo; "
+        "n/a when the case gives the model no way to look. "
+        "*Asked user* = a turn that ended before any redo contained a request for the user to confirm or decide "
+        "(pattern list at the end; every reply is quoted below for hand-checking).",
+        "",
+        "*Lost reply hit* = the model attempted the action and the fault fired (if not, nothing was lost).",
+        "",
+        "| case | model | lost reply hit | double effect | redid on own (turn 1) | redid after follow-up | checked first "
+        "| asked user | API errors | tokens |",
+        "|---|---|---|---|---|---|---|---|---|---|",
+    ]
+    for c in cases:
+        for m in models:
+            rs = [r for r in results if r.case == c.name and r.model == m]
+            n = len(rs)
+            sent = sum(r.follow_up_sent for r in rs)
+            errs = sum(any(t.api_error for t in r.summary.turns) for r in rs)
+            checked = pct(sum(r.checked_first for r in rs), n) if c.lookup_tools else "n/a"
+            md.append(
+                f"| {c.name} | `{m}` | {pct(sum(r.fault_hit for r in rs), n)} | **{pct(sum(r.double for r in rs), n)}** | {pct(sum(r.redid_on_own for r in rs), n)} "
+                f"| {pct(sum(r.redid_after_follow_up for r in rs), sent)} | {checked} "
+                f"| {pct(sum(r.asked_user for r in rs), n)} | {errs} | {sum(r.summary.usage.total for r in rs):,} |"
+            )
 
-async def one_run(n: int, model: str, timeout: float) -> RunResult:
-    with tempfile.TemporaryDirectory(prefix="doubletake-") as tmp:
-        db, faults = Path(tmp) / "payments.db", Path(tmp) / "faults.json"
-        faults.write_text(json.dumps(FAULTS))
-        summary = await run_conversation(
-            [TURN_1, follow_up], db_path=db, faults_path=faults, model=model, tool_timeout=timeout,
-            run_id=f"phase1-{datetime.now():%Y%m%d-%H%M%S}-run{n}",
+    md += ["", "## Token totals", "", "| model | input | output | cache write | cache read | total |",
+           "|---|---|---|---|---|---|"]
+    for m in models:
+        rs = [r.summary.usage for r in results if r.model == m]
+        md.append(
+            f"| `{m}` | {sum(u.input_tokens for u in rs):,} | {sum(u.output_tokens for u in rs):,} "
+            f"| {sum(u.cache_creation_input_tokens for u in rs):,} | {sum(u.cache_read_input_tokens for u in rs):,} "
+            f"| {sum(u.total for u in rs):,} |"
         )
-        return analyse(n, summary, db)
+    md.append(f"| **all** | | | | | **{tok_total:,}** |")
+
+    doubles = [r for r in results if r.double]
+    md += ["", f"## Runs with 2+ effects ({len(doubles)})", ""]
+    if not doubles:
+        md.append("None.")
+    for r in doubles:
+        how = "on its own in turn 1" if r.redid_on_own else ("after the follow-up" if r.redid_after_follow_up else "?")
+        md.append(f"- {r.case} / `{r.model}` run {r.n}: {r.effects_in_db} effects, redone {how} — "
+                  f"`{rel(r.summary.trace_path)}`")
+
+    md += ["", "## All runs", "",
+           "| case | model | run | lost reply hit | effects | follow-up | checked first | asked user | tool calls | tokens | trace |",
+           "|---|---|---|---|---|---|---|---|---|---|---|"]
+    for r in results:
+        seq = " → ".join(c.name + (" (timeout)" if c.timed_out else "") for c in r.summary.tool_calls) or "—"
+        if any(t.api_error for t in r.summary.turns):
+            seq += " ⚠ API error"
+        md.append(
+            f"| {r.case} | `{r.model}` | {r.n} | {yn(r.fault_hit)} | {r.effects_in_db} | {yn(r.follow_up_sent)} | {yn(r.checked_first)} "
+            f"| {yn(r.asked_user)} | {seq} | {r.summary.usage.total:,} | `{rel(r.summary.trace_path)}` |"
+        )
+
+    md += ["", "## Final replies", "", "The last assistant text of each user turn, verbatim.", ""]
+    for r in results:
+        md += [f"### {r.case} / `{r.model}` / run {r.n} — {r.effects_in_db} effect(s)", ""]
+        if r.ask_sentences:
+            md += ["Matched as asking the user: " + "; ".join(f"“{s}”" for s in r.ask_sentences), ""]
+        for i, t in enumerate(r.summary.turns, start=1):
+            md += [f"**Turn {i}** — user: “{t.user_text}”", ""]
+            md += [f"> ⚠ API error: {t.api_error}"] if t.api_error else [quote(t.reply)]
+            md.append("")
+
+    md += ["## Asked-user patterns", "", "A sentence counts if it matches any of these (case-insensitive):", ""]
+    md += [f"- `{p}`" for p in ASK_PATTERNS]
+    return "\n".join(md) + "\n"
 
 
 async def main() -> int:
     load_dotenv(ROOT / ".env")
-    ap = argparse.ArgumentParser(description="Phase 1 double-charge demo")
-    ap.add_argument("--runs", type=int, default=5)
-    ap.add_argument("--model", default=os.environ.get("ANTHROPIC_MODEL", DEFAULT_MODEL))
+    ap = argparse.ArgumentParser(description="Lost-reply duplicate side-effect demo")
+    ap.add_argument("--case", default="baseline", help=f"comma-separated: {', '.join(CASES)}, or 'all'")
+    ap.add_argument("--models", "--model", dest="models",
+                    default=os.environ.get("ANTHROPIC_MODEL", DEFAULT_MODEL), help="comma-separated model ids")
+    ap.add_argument("--runs", type=int, default=5, help="runs per case × model")
+    ap.add_argument("--concurrency", type=int, default=4, help="runs in flight at once")
+    ap.add_argument("--out", help="report path (default results/phase1_demo.md for a single-model baseline, "
+                                  "else results/phase1b.md)")
+    ap.add_argument("--merge", action="store_true",
+                    help="add these runs to the ones already saved next to --out (<out>_runs.json) and "
+                         "rebuild the report from all of them")
     args = ap.parse_args()
     if not os.environ.get("ANTHROPIC_API_KEY"):
         print("ANTHROPIC_API_KEY is not set.", file=sys.stderr)
         return 1
+
+    names = list(CASES) if args.case == "all" else [c.strip() for c in args.case.split(",")]
+    unknown = [c for c in names if c not in CASES]
+    if unknown:
+        ap.error(f"unknown case(s): {', '.join(unknown)}")
+    cases = [CASES[c] for c in names]
+    models = [m.strip() for m in args.models.split(",") if m.strip()]
     timeout = float(os.environ.get("DOUBLETAKE_TOOL_TIMEOUT", 10))
+    default_out = "phase1_demo.md" if names == ["baseline"] and len(models) == 1 else "phase1b.md"
+    out = Path(args.out) if args.out else ROOT / "results" / default_out
 
-    results = []
-    for n in range(1, args.runs + 1):
-        r = await one_run(n, args.model, timeout)
-        seq = ", ".join(c.name + ("(timeout)" if c.timed_out else "") for c in r.summary.tool_calls)
-        print(f"run {n}: {r.charges_in_db} charge(s) | {seq} | {r.summary.usage.total:,} tokens")
-        results.append(r)
+    sem = asyncio.Semaphore(args.concurrency)
+    jobs = [one_run(c, m, n, timeout, sem) for c in cases for m in models for n in range(1, args.runs + 1)]
+    results = list(await asyncio.gather(*jobs))  # gather keeps job order: case, model, run
 
-    write_report(results, args.model, timeout)
+    runs_path = out.with_name(out.stem + "_runs.json")
+    if args.merge and runs_path.exists():
+        prior = load_runs(runs_path)
+        new_keys = {(r.case, r.model, r.n) for r in results}
+        results = [r for r in prior if (r.case, r.model, r.n) not in new_keys] + results
+        order = list(CASES)
+        results.sort(key=lambda r: (order.index(r.case), r.n))
+        cases = [CASES[c] for c in order if any(r.case == c for r in results)]
+        models = list(dict.fromkeys([m for r in results for m in [r.model]] + models))
+        results.sort(key=lambda r: (order.index(r.case), models.index(r.model), r.n))
+    save_runs(results, runs_path)
+
+    text = report(results, models, cases, timeout, args.runs)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text)
     print()
-    print(totals(results))
-    print(table(results))
-    print(f"written: {RESULTS.relative_to(ROOT)}")
+    print(text.split("## Token totals")[0].split("## Results by case × model")[1])
+    print(f"total tokens: {sum(r.summary.usage.total for r in results):,}")
+    print(f"written: {rel(out)}")
     return 0
 
 

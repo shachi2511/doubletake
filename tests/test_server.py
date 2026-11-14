@@ -270,3 +270,12 @@ async def test_session_rolls_back_messages_on_api_error(tmp_path, monkeypatch):
             await s.send("list charges for 881")
         assert s.messages == before
         assert len(s.summary.tool_calls) == 1  # the tool call still happened and is recorded
+
+
+async def test_session_exclude_tools_hides_tool(tmp_path, monkeypatch):
+    from agent import loop
+
+    monkeypatch.setattr(loop, "LOG_DIR", tmp_path / "logs")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-not-used")
+    async with loop.AgentSession("fake", tmp_path / "s.db", tmp_path / "none.json", exclude_tools=["list_charges"]) as s:
+        assert {t["name"] for t in s.tools} == {"charge_card", "send_email"}
