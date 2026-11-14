@@ -1,0 +1,35 @@
+[
+ {
+  "scenario": "pending_lookup",
+  "model": "claude-haiku-5-5",
+  "run": 1,
+  "guard": "doubletake",
+  "effects": 1,
+  "status": "pass",
+  "asks": 2,
+  "interventions": 1,
+  "trace": "logs/p2-doubletake-pending_lookup-haiku-5-5-run1-20261113-234839072379.jsonl"
+ },
+ {
+  "scenario": "cart_two_items",
+  "model": "claude-haiku-5-5",
+  "run": 1,
+  "guard": "doubletake",
+  "effects": 2,
+  "status": "pass",
+  "asks": 0,
+  "interventions": 0,
+  "trace": "logs/p2-doubletake-cart_two_items-haiku-5-5-run1-20261113-234839107959.jsonl"
+ },
+ {
+  "scenario": "ho_user_confirms_failure",
+  "model": "claude-haiku-5-5",
+  "run": 1,
+  "guard": "doubletake",
+  "effects": 2,
+  "status": "pass",
+  "asks": 2,
+  "interventions": 2,
+  "trace": "logs/p2-doubletake-ho_user_confirms_failure-haiku-5-5-run1-20261113-234839108859.jsonl"
+ }
+]

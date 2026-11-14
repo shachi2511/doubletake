@@ -349,7 +349,7 @@ async def test_unresolved_earlier_and_new_with_basis_executes(basis):
     await step(g, ctx, "charge_card", {"customer": "377", "amount": 28}, TIMEOUT)
     say(ctx, "I checked and nothing went through. Please charge it again.")
     assert isinstance(await step(g, ctx, "charge_card", {"customer": "377", "amount": 28}), Execute)
-    first = g.state(ctx, lambda: None).effects[0]
+    first = g.effects(ctx)[0]
     assert first.outcome == ("failed" if basis == "earlier_failed" else "unresolved")
     # Still one per message: a further call in the same turn is a retry of the new one.
     assert not isinstance(await step(g, ctx, "charge_card", {"customer": "377", "amount": 28}), Execute)
@@ -372,3 +372,15 @@ async def test_rules_variant_asks_after_unresolved_since_it_cannot_read_intent()
     await step(g, ctx, "charge_card", CHARGE, TIMEOUT)
     say(ctx, "I checked, nothing went through, charge it again.")
     assert isinstance(await step(g, ctx, "charge_card", CHARGE), AskUser)
+
+
+def test_package_judge_prompt_is_the_phase5_v3_prompt():
+    """Refactor check: the judge prompt and schema moved into the package byte for byte."""
+    import json as _json
+    from pathlib import Path
+
+    from doubletake import judge as J
+
+    saved = _json.loads((Path(__file__).parents[1] / "results/phase4/judge_eval_v3.json").read_text())
+    assert J.JUDGE_SYSTEM == saved["judge_system"]
+    assert J.JUDGE_SCHEMA == saved["judge_schema"]

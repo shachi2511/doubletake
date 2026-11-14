@@ -7,3 +7,6 @@ data/*
 !data/.gitkeep
 logs/*
 !logs/.gitkeep
+*.egg-info/
+build/
+dist/

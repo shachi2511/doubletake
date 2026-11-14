@@ -22,8 +22,11 @@ PHASE4 = ROOT / "results" / "phase4"
 DEFAULT_GUARDS = ["none", "exact_hash", "agent_ledger", "mycelium", "mycelium_turnkey", "verify_before_retry"]
 
 
+RUNS_DIRS: list[Path] = []  # searched before the phase directories (--runs-dir)
+
+
 def runs_file(guard: str) -> Path:
-    for d in (PHASE2, PHASE3, PHASE4):  # first match wins
+    for d in (*RUNS_DIRS, PHASE2, PHASE3, PHASE4):  # first match wins
         if (d / f"{guard}_runs.json").exists():
             return d / f"{guard}_runs.json"
     return PHASE3 / f"{guard}_runs.json"
@@ -77,6 +80,7 @@ def build(guards: list[str], only_models: list[str] | None = None, title: str = 
         else:
             missing.append(g)
     guards = [g for g in guards if g in data]
+    scenarios = [sc for sc in scenarios if any(r.scenario.id == sc.id for g in guards for r in data[g])]
     models = list(dict.fromkeys(r.model for g in guards for r in data[g]))
     total = sum(r.summary.total_tokens for g in guards for r in data[g])
 
@@ -184,11 +188,16 @@ def main() -> int:
     ap.add_argument("--models", help="only these models (comma-separated)")
     ap.add_argument("--out", default=str(PHASE3 / "compare.md"))
     ap.add_argument("--title", default="guard comparison")
+    ap.add_argument("--runs-dir", help="look for <guard>_runs.json here first (e.g. results/phase5/heldout)")
+    ap.add_argument("--heldout", action="store_true", help="show the held-out scenarios too")
     args = ap.parse_args()
+    if args.runs_dir:
+        RUNS_DIRS.append(ROOT / args.runs_dir)
     out = Path(args.out) if Path(args.out).is_absolute() else ROOT / args.out
     out.parent.mkdir(parents=True, exist_ok=True)
     models = [m.strip() for m in args.models.split(",")] if args.models else None
-    out.write_text(build([g.strip() for g in args.guards.split(",") if g.strip()], models, args.title))
+    out.write_text(build([g.strip() for g in args.guards.split(",") if g.strip()], models, args.title,
+                         include_heldout=args.heldout))
     print(f"written: {rel(out)}")
     return 0
 

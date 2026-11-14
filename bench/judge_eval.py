@@ -24,6 +24,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from agent.guards import doubletake as dt
+from doubletake import judge as J  # the judge prompt/schema live in the package
 from agent.loop import ROOT
 
 OUT_DIR = ROOT / "results" / "phase4"
@@ -269,10 +270,10 @@ async def run(cases: list[Case], concurrency: int = 8) -> list[Result]:
 def to_json(results: list[Result], label: str) -> dict:
     return {
         "label": label,
-        "prompt_sha": hashlib.sha256(dt.JUDGE_SYSTEM.encode()).hexdigest()[:12],
-        "judge_system": dt.JUDGE_SYSTEM,
-        "judge_schema": dt.JUDGE_SCHEMA,
-        "model": dt.JUDGE_MODEL,
+        "prompt_sha": hashlib.sha256(J.JUDGE_SYSTEM.encode()).hexdigest()[:12],
+        "judge_system": J.JUDGE_SYSTEM,
+        "judge_schema": J.JUDGE_SCHEMA,
+        "model": J.JUDGE_MODEL,
         "date": datetime.now().isoformat(timespec="seconds"),
         "results": [{"id": r.case.id, "raw": r.raw, "effective": r.effective, "evidence_ok": r.evidence_ok,
                      "usage": r.usage, "error": r.error} for r in results],
@@ -342,7 +343,7 @@ def _stats(saved: dict, cases: list[Case]) -> list[str]:
 def write_report() -> Path:
     saved = sorted((json.loads(p.read_text()) for p in OUT_DIR.glob("judge_eval_*.json")), key=lambda s: s["date"])
     md = ["# DoubleTake intent judge: standalone eval", "",
-          f"`{dt.JUDGE_MODEL}`, one call per case, strict JSON schema, effort low. Main set: {len(CASES)} "
+          f"`{J.JUDGE_MODEL}`, one call per case, strict JSON schema, effort low. Main set: {len(CASES)} "
           "hand-written cases with new wording (none copied from `scenarios/`): 12 same_request (status checks, "
           "pushy follow-ups, \"try again\" after a timeout), 10 new, 5 count, 4 unsure. Held-out set: "
           f"{len(HOLDOUT)} more cases written after v1's main-set results were seen but before any revised prompt "
@@ -363,8 +364,8 @@ def write_report() -> Path:
 async def amain(label: str, system_from: str | None) -> int:
     if system_from:  # re-run an earlier prompt version exactly as saved (prompt and schema)
         saved = json.loads((OUT_DIR / f"judge_eval_{system_from}.json").read_text())
-        dt.JUDGE_SYSTEM = saved["judge_system"]
-        dt.JUDGE_SCHEMA = saved.get("judge_schema", V2_SCHEMA)
+        J.JUDGE_SYSTEM = saved["judge_system"]
+        J.JUDGE_SCHEMA = saved.get("judge_schema", V2_SCHEMA)
     results = await run(ALL_CASES)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     (OUT_DIR / f"judge_eval_{label}.json").write_text(json.dumps(to_json(results, label), indent=1))
